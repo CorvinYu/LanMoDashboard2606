@@ -452,8 +452,8 @@ function TaskDashboardPage({
   }, []);
 
   useEffect(() => {
-    onTaskScoreChange(calculateCurrentTaskScore(tasks, now));
-  }, [now, onTaskScoreChange, tasks]);
+    onTaskScoreChange(calculateCurrentTaskScore(tasks, routineHabits, now));
+  }, [now, onTaskScoreChange, routineHabits, tasks]);
 
   useEffect(() => {
     const status = new URLSearchParams(window.location.search).get('microsoftTodo');
@@ -1190,55 +1190,84 @@ function TaskDashboardPage({
   );
 }
 
-function calculateCurrentTaskScore(tasks: Task[], now: Date): CurrentTaskScore {
-  const penalty = tasks.reduce((sum, task) => {
-    if (task.status === 'DONE' || task.status === 'ARCHIVED' || !task.dueAt) {
-      return sum;
-    }
+function calculateCurrentTaskScore(
+  tasks: Task[],
+  routineHabits: RoutineHabit[],
+  now: Date,
+): CurrentTaskScore {
+  const taskPenalty = tasks.reduce((sum, task) => {
+    const overdueHours = getTaskOverdueHours(task, now);
 
-    const dueAt = new Date(task.dueAt);
-
-    if (Number.isNaN(dueAt.getTime()) || dueAt >= now) {
-      return sum;
-    }
-
-    const overdueHours = (now.getTime() - dueAt.getTime()) / 3_600_000;
-    const basePenalty = {
-      LOW: 4,
-      MEDIUM: 8,
-      HIGH: 14,
-    }[task.priority];
-    const timeMultiplier =
-      overdueHours <= 2
-        ? 0.5
-        : overdueHours <= 12
-          ? 1
-          : overdueHours <= 24
-            ? 1.4
-            : overdueHours <= 72
-              ? 2
-              : overdueHours <= 168
-                ? 3
-                : 4;
-
-    return sum + Math.min(basePenalty * timeMultiplier, 60);
+    return overdueHours === null
+      ? sum
+      : sum + getOverduePenalty(task.priority, overdueHours);
   }, 0);
 
-  const overdueCount = tasks.filter((task) => {
-    if (task.status === 'DONE' || task.status === 'ARCHIVED' || !task.dueAt) {
-      return false;
-    }
+  const routinePenalty = routineHabits.reduce((sum, habit) => {
+    const overdueHours = getRoutineOverdueHours(habit, now);
 
-    const dueAt = new Date(task.dueAt);
-
-    return !Number.isNaN(dueAt.getTime()) && dueAt < now;
-  }).length;
+    return overdueHours === null
+      ? sum
+      : sum + getOverduePenalty('LOW', overdueHours);
+  }, 0);
+  const overdueCount =
+    tasks.filter((task) => getTaskOverdueHours(task, now) !== null).length +
+    routineHabits.filter((habit) => getRoutineOverdueHours(habit, now) !== null).length;
+  const penalty = taskPenalty + routinePenalty;
 
   return {
     score: Math.max(0, Math.round(100 - penalty)),
     overdueCount,
     penalty: Math.round(penalty * 10) / 10,
   };
+}
+
+function getTaskOverdueHours(task: Task, now: Date) {
+  if (task.status === 'DONE' || task.status === 'ARCHIVED' || !task.dueAt) {
+    return null;
+  }
+
+  return getOverdueHours(task.dueAt, now);
+}
+
+function getRoutineOverdueHours(habit: RoutineHabit, now: Date) {
+  if (!habit.isActive || habit.state !== 'overdue') {
+    return null;
+  }
+
+  return getOverdueHours(habit.nextDueAt, now);
+}
+
+function getOverdueHours(dateValue: string, now: Date) {
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime()) || date >= now) {
+    return null;
+  }
+
+  return (now.getTime() - date.getTime()) / 3_600_000;
+}
+
+function getOverduePenalty(priority: TaskPriority, overdueHours: number) {
+  const basePenalty = {
+    LOW: 4,
+    MEDIUM: 8,
+    HIGH: 14,
+  }[priority];
+  const timeMultiplier =
+    overdueHours <= 2
+      ? 0.5
+      : overdueHours <= 12
+        ? 1
+        : overdueHours <= 24
+          ? 1.4
+          : overdueHours <= 72
+            ? 2
+            : overdueHours <= 168
+              ? 3
+              : 4;
+
+  return Math.min(basePenalty * timeMultiplier, 60);
 }
 
 function RoutinePage() {
