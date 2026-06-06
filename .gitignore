@@ -1,0 +1,10 @@
+.env
+node_modules/
+dist/
+*.tsbuildinfo
+
+apps/*/node_modules/
+apps/*/dist/
+
+references/opensource/*
+!references/opensource/.gitkeep

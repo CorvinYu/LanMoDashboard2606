@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tasks           Task[]
+  calendarEvents  CalendarEvent[]
+  reminders       Reminder[]
+  dailyScores     DailyScore[]
+  conversations   AiConversation[]
+  suggestions     AiSuggestion[]
+  integrationAccounts IntegrationAccount[]
+  taskIntegrations     TaskIntegration[]
+  routineHabits        RoutineHabit[]
+  routineCheckIns      RoutineCheckIn[]
+  sleepLogs            SleepLog[]
+
+  @@map("users")
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  userId      String     @map("user_id")
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(MEDIUM)
+  dueAt       DateTime?  @map("due_at")
+  completedAt DateTime?  @map("completed_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders Reminder[]
+  integrations TaskIntegration[]
+
+  @@map("tasks")
+}
+
+model CalendarEvent {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  title       String
+  description String?
+  startsAt    DateTime    @map("starts_at")
+  endsAt      DateTime    @map("ends_at")
+  location    String?
+  priority    Priority    @default(MEDIUM)
+  source      EventSource @default(MANUAL)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders Reminder[]
+
+  @@map("calendar_events")
+}
+
+model Reminder {
+  id        String         @id @default(uuid())
+  userId    String         @map("user_id")
+  taskId    String?        @map("task_id")
+  eventId   String?        @map("event_id")
+  title     String
+  remindAt  DateTime       @map("remind_at")
+  status    ReminderStatus @default(PENDING)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task  Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  event CalendarEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@map("reminders")
+}
+
+model DailyScore {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  date              DateTime @db.Date
+  score             Int
+  moodScore         Int?     @map("mood_score")
+  productivityScore Int?     @map("productivity_score")
+  healthScore       Int?     @map("health_score")
+  note              String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("daily_scores")
+}
+
+model AiConversation {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    AiMessage[]
+  suggestions AiSuggestion[]
+
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String        @id @default(uuid())
+  conversationId String        @map("conversation_id")
+  role           AiMessageRole
+  content        String
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_messages")
+}
+
+model AiSuggestion {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  conversationId String?          @map("conversation_id")
+  type           SuggestionType
+  title          String
+  explanation    String?
+  payloadJson    Json             @map("payload_json")
+  status         SuggestionStatus @default(PENDING)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  appliedAt      DateTime?        @map("applied_at")
+
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation  AiConversation?          @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  applications  SuggestionApplication[]
+
+  @@map("ai_suggestions")
+}
+
+model SuggestionApplication {
+  id           String     @id @default(uuid())
+  suggestionId String     @map("suggestion_id")
+  userId       String     @map("user_id")
+  targetType   TargetType @map("target_type")
+  targetId     String     @map("target_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  suggestion AiSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+
+  @@map("suggestion_applications")
+}
+
+model IntegrationAccount {
+  id           String              @id @default(uuid())
+  userId       String              @map("user_id")
+  provider     IntegrationProvider
+  accessToken  String              @map("access_token")
+  refreshToken String?             @map("refresh_token")
+  expiresAt    DateTime            @map("expires_at")
+  scope        String?
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("integration_accounts")
+}
+
+model TaskIntegration {
+  id             String              @id @default(uuid())
+  userId         String              @map("user_id")
+  taskId         String              @map("task_id")
+  provider       IntegrationProvider
+  externalTaskId String              @map("external_task_id")
+  externalListId String              @map("external_list_id")
+  externalEtag   String?             @map("external_etag")
+  rawJson        Json?               @map("raw_json")
+  lastSyncedAt   DateTime            @default(now()) @map("last_synced_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalTaskId])
+  @@index([userId, provider])
+  @@map("task_integrations")
+}
+
+model RoutineHabit {
+  id              String              @id @default(uuid())
+  userId          String              @map("user_id")
+  title           String
+  description     String?
+  category        String              @default("生活")
+  intervalValue   Int                 @map("interval_value")
+  intervalUnit    RoutineIntervalUnit @map("interval_unit")
+  nextDueAt       DateTime            @map("next_due_at")
+  isRolling       Boolean             @default(false) @map("is_rolling")
+  reminderEnabled Boolean             @default(true) @map("reminder_enabled")
+  addToToday      Boolean             @default(false) @map("add_to_today")
+  isActive        Boolean             @default(true) @map("is_active")
+  lastRemindedAt  DateTime?           @map("last_reminded_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIns RoutineCheckIn[]
+
+  @@index([userId, isActive, nextDueAt])
+  @@map("routine_habits")
+}
+
+model RoutineCheckIn {
+  id          String               @id @default(uuid())
+  userId      String               @map("user_id")
+  habitId     String               @map("habit_id")
+  performedAt DateTime             @map("performed_at")
+  dueAt       DateTime?            @map("due_at")
+  status      RoutineCheckInStatus @default(COMPLETED)
+  note        String?
+  createdAt   DateTime             @default(now()) @map("created_at")
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  habit RoutineHabit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@index([userId, performedAt])
+  @@index([habitId, performedAt])
+  @@map("routine_check_ins")
+}
+
+model SleepLog {
+  id           String         @id @default(uuid())
+  userId       String         @map("user_id")
+  wentToBedAt  DateTime       @map("went_to_bed_at")
+  fellAsleepAt DateTime?      @map("fell_asleep_at")
+  wokeUpAt     DateTime       @map("woke_up_at")
+  quality      Int?
+  note         String?
+  source       SleepLogSource @default(MANUAL)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, wokeUpAt])
+  @@map("sleep_logs")
+}
+
+enum TaskStatus {
+  TODO
+  DOING
+  DONE
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum EventSource {
+  MANUAL
+  AI_APPLIED
+  IMPORTED
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DISMISSED
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum SuggestionType {
+  CREATE_TASK
+  UPDATE_TASK
+  CREATE_EVENT
+  CREATE_REMINDER
+  DAILY_PLAN
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  APPLIED
+}
+
+enum TargetType {
+  TASK
+  CALENDAR_EVENT
+  REMINDER
+}
+
+enum IntegrationProvider {
+  MICROSOFT_TODO
+}
+
+enum RoutineIntervalUnit {
+  HOURS
+  DAYS
+  WEEKS
+  MONTHS
+}
+
+enum RoutineCheckInStatus {
+  COMPLETED
+  SKIPPED
+  MISSED
+  RESCHEDULED
+}
+
+enum SleepLogSource {
+  MANUAL
+  IMPORTED
+}
