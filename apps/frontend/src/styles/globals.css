@@ -173,6 +173,46 @@ h1 {
   line-height: 1.08;
 }
 
+.page-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.score-summary-panel {
+  min-height: 44px;
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid #d9ded8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #354148;
+  box-shadow: 0 6px 18px rgb(23 32 38 / 6%);
+}
+
+.score-summary-panel span {
+  color: #5d6971;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.score-summary-panel strong {
+  color: #1f5c44;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.score-summary-panel small {
+  grid-column: 1 / -1;
+  color: #6a747b;
+  font-size: 0.78rem;
+}
+
 .status {
   display: inline-flex;
   align-items: center;

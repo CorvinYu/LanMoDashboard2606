@@ -18,7 +18,7 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CountdownEvent,
   AuthUser,
@@ -114,6 +114,12 @@ const priorityLabels: Record<TaskPriority, string> = {
 
 const countdownRefreshMs = 30 * 60 * 1000;
 
+type CurrentTaskScore = {
+  score: number;
+  overdueCount: number;
+  penalty: number;
+};
+
 export function App() {
   const [activePage, setActivePage] = useState<PageKey>('tasks');
   const [isSidebarOpen, setIsSidebarOpen] = useState(
@@ -122,6 +128,7 @@ export function App() {
   const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(() => Boolean(getStoredAuthToken()));
+  const [currentTaskScore, setCurrentTaskScore] = useState<CurrentTaskScore | null>(null);
 
   useEffect(() => {
     getHealth()
@@ -161,7 +168,12 @@ export function App() {
     await logout().catch(() => undefined);
     setAuthToken('');
     setCurrentUser(null);
+    setCurrentTaskScore(null);
   }
+
+  const handleTaskScoreChange = useCallback((score: CurrentTaskScore) => {
+    setCurrentTaskScore(score);
+  }, []);
 
   if (isCheckingAuth) {
     return (
@@ -237,7 +249,10 @@ export function App() {
         <section className="topbar">
           <div>
             <p className="eyebrow">当前页面</p>
-            <h2>{currentPage.title}</h2>
+            <div className="page-title-row">
+              <h2>{currentPage.title}</h2>
+              {activePage === 'tasks' ? <ScoreSummaryPanel score={currentTaskScore} /> : null}
+            </div>
           </div>
           <div className="topbar-actions">
             <div className="user-pill">
@@ -254,7 +269,7 @@ export function App() {
           </div>
         </section>
 
-        {activePage === 'tasks' ? <TaskDashboardPage /> : null}
+        {activePage === 'tasks' ? <TaskDashboardPage onTaskScoreChange={handleTaskScoreChange} /> : null}
         {activePage === 'routine' ? <RoutinePage /> : null}
         {activePage === 'calendar' ? <PlaceholderPage title="日历" /> : null}
         {activePage === 'reminders' ? <PlaceholderPage title="提醒" /> : null}
@@ -262,6 +277,16 @@ export function App() {
         {activePage === 'ai' ? <PlaceholderPage title="AI 助手" /> : null}
       </section>
     </main>
+  );
+}
+
+function ScoreSummaryPanel({ score }: { score: CurrentTaskScore | null }) {
+  return (
+    <div className="score-summary-panel" aria-label="当前评分">
+      <span>当前任务分</span>
+      <strong>{score ? score.score : '--'}</strong>
+      <small>{score ? `${score.overdueCount} 项逾期` : '计算中'}</small>
+    </div>
   );
 }
 
@@ -381,7 +406,11 @@ function AuthPage({
   );
 }
 
-function TaskDashboardPage() {
+function TaskDashboardPage({
+  onTaskScoreChange,
+}: {
+  onTaskScoreChange: (score: CurrentTaskScore) => void;
+}) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [routineHabits, setRoutineHabits] = useState<RoutineHabit[]>([]);
   const [countdownEvents, setCountdownEvents] = useState<CountdownEvent[]>([]);
@@ -421,6 +450,10 @@ function TaskDashboardPage() {
     refreshTasks();
     refreshCountdownEvents();
   }, []);
+
+  useEffect(() => {
+    onTaskScoreChange(calculateCurrentTaskScore(tasks, now));
+  }, [now, onTaskScoreChange, tasks]);
 
   useEffect(() => {
     const status = new URLSearchParams(window.location.search).get('microsoftTodo');
@@ -1155,6 +1188,57 @@ function TaskDashboardPage() {
 
     </>
   );
+}
+
+function calculateCurrentTaskScore(tasks: Task[], now: Date): CurrentTaskScore {
+  const penalty = tasks.reduce((sum, task) => {
+    if (task.status === 'DONE' || task.status === 'ARCHIVED' || !task.dueAt) {
+      return sum;
+    }
+
+    const dueAt = new Date(task.dueAt);
+
+    if (Number.isNaN(dueAt.getTime()) || dueAt >= now) {
+      return sum;
+    }
+
+    const overdueHours = (now.getTime() - dueAt.getTime()) / 3_600_000;
+    const basePenalty = {
+      LOW: 4,
+      MEDIUM: 8,
+      HIGH: 14,
+    }[task.priority];
+    const timeMultiplier =
+      overdueHours <= 2
+        ? 0.5
+        : overdueHours <= 12
+          ? 1
+          : overdueHours <= 24
+            ? 1.4
+            : overdueHours <= 72
+              ? 2
+              : overdueHours <= 168
+                ? 3
+                : 4;
+
+    return sum + Math.min(basePenalty * timeMultiplier, 60);
+  }, 0);
+
+  const overdueCount = tasks.filter((task) => {
+    if (task.status === 'DONE' || task.status === 'ARCHIVED' || !task.dueAt) {
+      return false;
+    }
+
+    const dueAt = new Date(task.dueAt);
+
+    return !Number.isNaN(dueAt.getTime()) && dueAt < now;
+  }).length;
+
+  return {
+    score: Math.max(0, Math.round(100 - penalty)),
+    overdueCount,
+    penalty: Math.round(penalty * 10) / 10,
+  };
 }
 
 function RoutinePage() {
