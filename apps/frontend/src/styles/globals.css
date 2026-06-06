@@ -31,7 +31,7 @@ body {
 .sidebar-toggle {
   position: fixed;
   top: 14px;
-  left: 14px;
+  left: 272px;
   z-index: 20;
   width: 40px;
   height: 40px;
@@ -43,6 +43,10 @@ body {
   color: #354148;
   cursor: pointer;
   box-shadow: 0 6px 18px rgb(23 32 38 / 10%);
+}
+
+.app-layout-sidebar-closed .sidebar-toggle {
+  left: 14px;
 }
 
 .sidebar-backdrop {
@@ -870,6 +874,11 @@ textarea {
 }
 
 @media (max-width: 1180px) {
+  .sidebar-toggle,
+  .app-layout-sidebar-closed .sidebar-toggle {
+    left: 14px;
+  }
+
   .app-layout {
     grid-template-columns: 1fr;
   }
