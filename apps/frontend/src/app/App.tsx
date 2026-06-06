@@ -281,13 +281,31 @@ export function App() {
 }
 
 function ScoreSummaryPanel({ score }: { score: CurrentTaskScore | null }) {
+  const scoreTone = score ? getScoreTone(score.score) : 'pending';
+
   return (
-    <div className="score-summary-panel" aria-label="当前评分">
+    <div className={`score-summary-panel score-summary-${scoreTone}`} aria-label="当前评分">
       <span>当前任务分</span>
       <strong>{score ? score.score : '--'}</strong>
       <small>{score ? `${score.overdueCount} 项逾期` : '计算中'}</small>
     </div>
   );
+}
+
+function getScoreTone(score: number) {
+  if (score >= 85) {
+    return 'healthy';
+  }
+
+  if (score >= 70) {
+    return 'stable';
+  }
+
+  if (score >= 50) {
+    return 'warning';
+  }
+
+  return 'danger';
 }
 
 function AuthPage({
