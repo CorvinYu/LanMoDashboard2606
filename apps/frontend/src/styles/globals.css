@@ -195,6 +195,31 @@ h1 {
   box-shadow: 0 6px 18px rgb(23 32 38 / 6%);
 }
 
+.score-summary-healthy {
+  border-color: #a8d5b5;
+  background: #f1f8f2;
+}
+
+.score-summary-stable {
+  border-color: #d3dda1;
+  background: #f8faed;
+}
+
+.score-summary-warning {
+  border-color: #edd29a;
+  background: #fff8e8;
+}
+
+.score-summary-danger {
+  border-color: #e7b2aa;
+  background: #fff1ee;
+}
+
+.score-summary-pending {
+  border-color: #d9ded8;
+  background: #ffffff;
+}
+
 .score-summary-panel span {
   color: #5d6971;
   font-size: 0.82rem;
@@ -202,9 +227,28 @@ h1 {
 }
 
 .score-summary-panel strong {
-  color: #1f5c44;
   font-size: 1.2rem;
   line-height: 1;
+}
+
+.score-summary-healthy strong {
+  color: #17663b;
+}
+
+.score-summary-stable strong {
+  color: #627119;
+}
+
+.score-summary-warning strong {
+  color: #8a5f12;
+}
+
+.score-summary-danger strong {
+  color: #a13d2d;
+}
+
+.score-summary-pending strong {
+  color: #354148;
 }
 
 .score-summary-panel small {
