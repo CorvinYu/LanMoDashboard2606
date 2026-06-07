@@ -918,6 +918,136 @@ textarea {
   margin-top: 14px;
 }
 
+.electricity-page {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.electricity-summary-panel {
+  grid-column: 1 / -1;
+}
+
+.electricity-form-panel {
+  grid-column: 1;
+}
+
+.electricity-history-panel {
+  grid-column: 2;
+  min-height: 420px;
+}
+
+.electricity-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.electricity-metric {
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  padding: 14px;
+  border: 1px solid #e0e5df;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.electricity-metric-primary {
+  border-color: #b9d8c4;
+  background: #f1f8f2;
+}
+
+.electricity-metric span,
+.electricity-metric small {
+  color: #6a747b;
+  font-size: 0.84rem;
+}
+
+.electricity-metric strong {
+  color: #172026;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.electricity-status {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.electricity-status-OK {
+  background: #edf3ee;
+  color: #1f5c44;
+}
+
+.electricity-status-WARNING {
+  background: #fff8e8;
+  color: #8a5f12;
+}
+
+.electricity-status-LOW {
+  background: #fff1ee;
+  color: #a13d2d;
+}
+
+.electricity-status-NO_DATA {
+  background: #eef1f3;
+  color: #5d6971;
+}
+
+.electricity-alert,
+.electricity-warning {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.electricity-alert {
+  background: #fff1ee;
+  color: #a13d2d;
+}
+
+.electricity-warning {
+  background: #fff8e8;
+  color: #8a5f12;
+}
+
+.electricity-reading-list {
+  display: grid;
+  gap: 10px;
+}
+
+.electricity-reading-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e0e5df;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.electricity-reading-main {
+  display: grid;
+  gap: 8px;
+}
+
+.electricity-reading-main h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.electricity-reading-main p {
+  margin-bottom: 0;
+  color: #6a747b;
+  font-size: 0.86rem;
+}
+
 .placeholder-page {
   max-width: 720px;
 }
@@ -1074,9 +1204,16 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .electricity-page {
+    grid-template-columns: 1fr;
+  }
+
   .routine-list-panel,
   .routine-history-panel,
-  .sleep-panel {
+  .sleep-panel,
+  .electricity-summary-panel,
+  .electricity-form-panel,
+  .electricity-history-panel {
     grid-column: auto;
     grid-row: auto;
   }
@@ -1095,6 +1232,22 @@ textarea {
 
   .sleep-panel {
     order: 4;
+  }
+
+  .electricity-summary-panel {
+    order: 1;
+  }
+
+  .electricity-form-panel {
+    order: 2;
+  }
+
+  .electricity-history-panel {
+    order: 3;
+  }
+
+  .electricity-metrics {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1159,6 +1312,10 @@ textarea {
   }
 
   .countdown-item {
+    grid-template-columns: 1fr;
+  }
+
+  .electricity-reading-item {
     grid-template-columns: 1fr;
   }
 

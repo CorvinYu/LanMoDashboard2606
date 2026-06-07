@@ -155,6 +155,38 @@ export type CreateSleepLogInput = {
   note?: string;
 };
 
+export type ElectricityReading = {
+  id: string;
+  recordedAt: string;
+  remainingKwh: number;
+  didRecharge: boolean;
+  rechargeKwh: number | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ElectricitySummary = {
+  latest: ElectricityReading | null;
+  alertThresholdKwh: number;
+  dailyUsageKwh: number;
+  validSegmentCount: number;
+  ignoredSegmentCount: number;
+  daysUntilThreshold: number | null;
+  estimatedThresholdAt: string | null;
+  status: 'NO_DATA' | 'OK' | 'WARNING' | 'LOW';
+};
+
+export type CreateElectricityReadingInput = {
+  recordedAt: string;
+  remainingKwh: number;
+  didRecharge?: boolean;
+  rechargeKwh?: number | null;
+  note?: string;
+};
+
+export type UpdateElectricityReadingInput = Partial<CreateElectricityReadingInput>;
+
 export type CreateTaskInput = {
   title: string;
   description?: string;
@@ -395,5 +427,33 @@ export function createSleepLog(input: CreateSleepLogInput) {
   return request<SleepLog>('/sleep-logs', {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export function getElectricitySummary() {
+  return request<ElectricitySummary>('/electricity/summary');
+}
+
+export function listElectricityReadings() {
+  return request<ElectricityReading[]>('/electricity/readings');
+}
+
+export function createElectricityReading(input: CreateElectricityReadingInput) {
+  return request<ElectricityReading>('/electricity/readings', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateElectricityReading(id: string, input: UpdateElectricityReadingInput) {
+  return request<ElectricityReading>(`/electricity/readings/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteElectricityReading(id: string) {
+  return request<ElectricityReading>(`/electricity/readings/${id}`, {
+    method: 'DELETE',
   });
 }

@@ -17,11 +17,14 @@ import {
   Trash2,
   User,
   X,
+  Zap,
 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CountdownEvent,
   AuthUser,
+  ElectricityReading,
+  ElectricitySummary,
   RoutineHabit,
   RoutineIntervalUnit,
   SleepLog,
@@ -31,15 +34,19 @@ import {
   checkOverdueRoutineHabits,
   completeTask,
   createCountdownEvent,
+  createElectricityReading,
   createRoutineHabit,
   createSleepLog,
   createTask,
   deleteCountdownEvent,
+  deleteElectricityReading,
   deleteRoutineHabit,
   deleteTask,
+  getElectricitySummary,
   getHealth,
   getMe,
   getMicrosoftTodoAuthUrl,
+  listElectricityReadings,
   getStoredAuthToken,
   listCountdownEvents,
   listRecentRoutineCheckIns,
@@ -56,12 +63,13 @@ import {
   skipRoutineHabit,
   syncMicrosoftTodo,
   updateCountdownEvent,
+  updateElectricityReading,
   updateMe,
   updateRoutineHabit,
   updateTask,
 } from '../api/client';
 
-type PageKey = 'tasks' | 'routine' | 'calendar' | 'reminders' | 'scores' | 'ai' | 'account';
+type PageKey = 'tasks' | 'routine' | 'electricity' | 'calendar' | 'reminders' | 'scores' | 'ai' | 'account';
 
 const navigationItems: Array<{
   key: PageKey;
@@ -80,6 +88,12 @@ const navigationItems: Array<{
     title: '定时检查',
     description: '固定节奏和每日结构',
     icon: Clock,
+  },
+  {
+    key: 'electricity',
+    title: '电费监控',
+    description: '余量、耗电和充值记录',
+    icon: Zap,
   },
   {
     key: 'calendar',
@@ -277,6 +291,7 @@ export function App() {
 
         {activePage === 'tasks' ? <TaskDashboardPage onTaskScoreChange={handleTaskScoreChange} /> : null}
         {activePage === 'routine' ? <RoutinePage /> : null}
+        {activePage === 'electricity' ? <ElectricityPage /> : null}
         {activePage === 'calendar' ? <PlaceholderPage title="日历" /> : null}
         {activePage === 'reminders' ? <PlaceholderPage title="提醒" /> : null}
         {activePage === 'scores' ? <PlaceholderPage title="每日评分" /> : null}
@@ -1977,6 +1992,350 @@ function RoutinePage() {
   );
 }
 
+function ElectricityPage() {
+  const [summary, setSummary] = useState<ElectricitySummary | null>(null);
+  const [readings, setReadings] = useState<ElectricityReading[]>([]);
+  const [recordedAt, setRecordedAt] = useState(() => toDateTimeLocalValue(new Date().toISOString()));
+  const [remainingKwh, setRemainingKwh] = useState('');
+  const [didRecharge, setDidRecharge] = useState(false);
+  const [rechargeKwh, setRechargeKwh] = useState('');
+  const [note, setNote] = useState('');
+  const [editingReadingId, setEditingReadingId] = useState<string | null>(null);
+  const [editRecordedAt, setEditRecordedAt] = useState('');
+  const [editRemainingKwh, setEditRemainingKwh] = useState('');
+  const [editDidRecharge, setEditDidRecharge] = useState(false);
+  const [editRechargeKwh, setEditRechargeKwh] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    refreshElectricityPage();
+  }, []);
+
+  async function refreshElectricityPage() {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const [loadedSummary, loadedReadings] = await Promise.all([
+        getElectricitySummary(),
+        listElectricityReadings(),
+      ]);
+
+      setSummary(loadedSummary);
+      setReadings(loadedReadings);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : '电费记录加载失败');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleCreateReading(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!recordedAt) {
+      setError('请选择记录时间');
+      return;
+    }
+
+    if (!remainingKwh) {
+      setError('请输入当前剩余电量');
+      return;
+    }
+
+    setIsSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      await createElectricityReading({
+        recordedAt: new Date(recordedAt).toISOString(),
+        remainingKwh: Number(remainingKwh),
+        didRecharge,
+        rechargeKwh: didRecharge && rechargeKwh ? Number(rechargeKwh) : null,
+        note,
+      });
+      setMessage('电费读数已保存。');
+      setRecordedAt(toDateTimeLocalValue(new Date().toISOString()));
+      setRemainingKwh('');
+      setDidRecharge(false);
+      setRechargeKwh('');
+      setNote('');
+      await refreshElectricityPage();
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : '电费读数保存失败');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleStartReadingEdit(reading: ElectricityReading) {
+    setEditingReadingId(reading.id);
+    setEditRecordedAt(toDateTimeLocalValue(reading.recordedAt));
+    setEditRemainingKwh(String(reading.remainingKwh));
+    setEditDidRecharge(reading.didRecharge);
+    setEditRechargeKwh(reading.rechargeKwh === null ? '' : String(reading.rechargeKwh));
+    setEditNote(reading.note ?? '');
+    setMessage('');
+    setError('');
+  }
+
+  function handleCancelReadingEdit() {
+    setEditingReadingId(null);
+    setEditRecordedAt('');
+    setEditRemainingKwh('');
+    setEditDidRecharge(false);
+    setEditRechargeKwh('');
+    setEditNote('');
+    setIsSavingEdit(false);
+  }
+
+  async function handleSaveReadingEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!editingReadingId) {
+      return;
+    }
+
+    if (!editRecordedAt || !editRemainingKwh) {
+      setError('请填写记录时间和剩余电量');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setMessage('');
+    setError('');
+
+    try {
+      await updateElectricityReading(editingReadingId, {
+        recordedAt: new Date(editRecordedAt).toISOString(),
+        remainingKwh: Number(editRemainingKwh),
+        didRecharge: editDidRecharge,
+        rechargeKwh: editDidRecharge && editRechargeKwh ? Number(editRechargeKwh) : null,
+        note: editNote,
+      });
+      setMessage('电费读数已更新。');
+      handleCancelReadingEdit();
+      await refreshElectricityPage();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : '电费读数更新失败');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
+
+  async function handleDeleteReading(id: string) {
+    setMessage('');
+    setError('');
+
+    try {
+      await deleteElectricityReading(id);
+      setMessage('电费读数已删除。');
+      await refreshElectricityPage();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '电费读数删除失败');
+    }
+  }
+
+  return (
+    <section className="electricity-page">
+      <div className="task-panel electricity-summary-panel">
+        <div className="section-heading">
+          <div>
+            <h2>电费概览</h2>
+          </div>
+          <span className={`electricity-status electricity-status-${summary?.status ?? 'NO_DATA'}`}>
+            {getElectricityStatusLabel(summary?.status ?? 'NO_DATA')}
+          </span>
+        </div>
+
+        {isLoading ? (
+          <p className="muted">正在加载电费记录</p>
+        ) : (
+          <div className="electricity-metrics">
+            <div className="electricity-metric electricity-metric-primary">
+              <span>当前剩余</span>
+              <strong>{summary?.latest ? formatKwh(summary.latest.remainingKwh) : '--'}</strong>
+              <small>{summary?.latest ? `记录于 ${formatDate(summary.latest.recordedAt)}` : '还没有读数'}</small>
+            </div>
+            <div className="electricity-metric">
+              <span>估算日耗电</span>
+              <strong>{summary ? formatKwh(summary.dailyUsageKwh) : '--'}</strong>
+              <small>{summary ? `${summary.validSegmentCount} 段有效，${summary.ignoredSegmentCount} 段跳过` : '需要至少两次读数'}</small>
+            </div>
+            <div className="electricity-metric">
+              <span>低于 15 度</span>
+              <strong>{formatThresholdEstimate(summary)}</strong>
+              <small>{summary?.estimatedThresholdAt ? formatDate(summary.estimatedThresholdAt) : '数据不足时不预测'}</small>
+            </div>
+          </div>
+        )}
+
+        {summary?.status === 'LOW' ? (
+          <p className="electricity-alert">当前剩余电量低于 {summary.alertThresholdKwh} 度，建议尽快充值。</p>
+        ) : null}
+        {summary?.status === 'WARNING' ? (
+          <p className="electricity-warning">按近期耗电速度，预计 3 天内会低于 {summary.alertThresholdKwh} 度。</p>
+        ) : null}
+      </div>
+
+      <div className="task-panel electricity-form-panel">
+        <div className="section-heading">
+          <div>
+            <h2>录入读数</h2>
+          </div>
+        </div>
+
+        <form className="task-form" onSubmit={handleCreateReading}>
+          <label>
+            <span>记录时间</span>
+            <input type="datetime-local" value={recordedAt} onChange={(event) => setRecordedAt(event.target.value)} />
+          </label>
+
+          <label>
+            <span>当前剩余电量</span>
+            <input
+              min={0}
+              step="0.01"
+              type="number"
+              value={remainingKwh}
+              onChange={(event) => setRemainingKwh(event.target.value)}
+              placeholder="例如：23.5"
+            />
+          </label>
+
+          <div className="routine-options">
+            <label>
+              <input checked={didRecharge} onChange={(event) => setDidRecharge(event.target.checked)} type="checkbox" />
+              <span>这次读数前发生过充值</span>
+            </label>
+          </div>
+
+          {didRecharge ? (
+            <label>
+              <span>充值电量</span>
+              <input
+                min={0}
+                step="0.01"
+                type="number"
+                value={rechargeKwh}
+                onChange={(event) => setRechargeKwh(event.target.value)}
+                placeholder="不知道可留空，本段不参与估算"
+              />
+            </label>
+          ) : null}
+
+          <label>
+            <span>备注</span>
+            <textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} />
+          </label>
+
+          <button className="primary-button" disabled={isSaving} type="submit">
+            <Save size={18} />
+            <span>{isSaving ? '保存中' : '保存读数'}</span>
+          </button>
+        </form>
+
+        {message ? <p className="success-text">{message}</p> : null}
+        {error ? <p className="error-text">{error}</p> : null}
+      </div>
+
+      <div className="task-panel electricity-history-panel">
+        <div className="section-heading">
+          <div>
+            <h2>读数记录</h2>
+          </div>
+          <button className="heading-button" onClick={refreshElectricityPage} type="button">
+            <RefreshCw size={16} />
+            <span>刷新</span>
+          </button>
+        </div>
+
+        {readings.length === 0 ? (
+          <p className="muted">还没有电费读数。</p>
+        ) : (
+          <div className="electricity-reading-list">
+            {readings.map((reading) => (
+              <article className="electricity-reading-item" key={reading.id}>
+                {editingReadingId === reading.id ? (
+                  <form className="task-edit-form" onSubmit={handleSaveReadingEdit}>
+                    <div className="form-row">
+                      <label>
+                        <span>时间</span>
+                        <input type="datetime-local" value={editRecordedAt} onChange={(event) => setEditRecordedAt(event.target.value)} />
+                      </label>
+                      <label>
+                        <span>剩余</span>
+                        <input min={0} step="0.01" type="number" value={editRemainingKwh} onChange={(event) => setEditRemainingKwh(event.target.value)} />
+                      </label>
+                    </div>
+                    <div className="routine-options">
+                      <label>
+                        <input checked={editDidRecharge} onChange={(event) => setEditDidRecharge(event.target.checked)} type="checkbox" />
+                        <span>发生过充值</span>
+                      </label>
+                    </div>
+                    {editDidRecharge ? (
+                      <label>
+                        <span>充值电量</span>
+                        <input min={0} step="0.01" type="number" value={editRechargeKwh} onChange={(event) => setEditRechargeKwh(event.target.value)} />
+                      </label>
+                    ) : null}
+                    <label>
+                      <span>备注</span>
+                      <textarea rows={2} value={editNote} onChange={(event) => setEditNote(event.target.value)} />
+                    </label>
+                    <div className="edit-actions">
+                      <button disabled={isSavingEdit} type="submit">
+                        <Save size={16} />
+                        <span>{isSavingEdit ? '保存中' : '保存'}</span>
+                      </button>
+                      <button onClick={handleCancelReadingEdit} type="button">
+                        <X size={16} />
+                        <span>取消</span>
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="electricity-reading-main">
+                      <div>
+                        <h3>{formatKwh(reading.remainingKwh)}</h3>
+                        <p>{formatDate(reading.recordedAt)}</p>
+                      </div>
+                      <div className="task-meta">
+                        {reading.didRecharge ? (
+                          <span>{reading.rechargeKwh === null ? '充值：未填电量' : `充值：${formatKwh(reading.rechargeKwh)}`}</span>
+                        ) : (
+                          <span>未充值</span>
+                        )}
+                        {reading.note ? <span>{reading.note}</span> : null}
+                      </div>
+                    </div>
+                    <div className="task-actions">
+                      <button aria-label="编辑电费读数" onClick={() => handleStartReadingEdit(reading)} type="button">
+                        <Edit3 size={18} />
+                      </button>
+                      <button aria-label="删除电费读数" onClick={() => handleDeleteReading(reading.id)} type="button">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function PlaceholderPage({ title }: { title: string }) {
   return (
     <section className="placeholder-page task-panel">
@@ -2032,6 +2391,42 @@ function formatDate(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatKwh(value: number) {
+  return `${Number(value.toFixed(2))} 度`;
+}
+
+function formatThresholdEstimate(summary: ElectricitySummary | null) {
+  if (!summary || summary.daysUntilThreshold === null || summary.dailyUsageKwh <= 0) {
+    return '--';
+  }
+
+  if (summary.daysUntilThreshold < 0) {
+    return '已低于阈值';
+  }
+
+  if (summary.daysUntilThreshold < 1) {
+    return '24 小时内';
+  }
+
+  return `${Number(summary.daysUntilThreshold.toFixed(1))} 天`;
+}
+
+function getElectricityStatusLabel(status: ElectricitySummary['status']) {
+  if (status === 'LOW') {
+    return '电量不足';
+  }
+
+  if (status === 'WARNING') {
+    return '即将不足';
+  }
+
+  if (status === 'OK') {
+    return '正常';
+  }
+
+  return '待录入';
 }
 
 function toDateTimeLocalValue(value: string) {
