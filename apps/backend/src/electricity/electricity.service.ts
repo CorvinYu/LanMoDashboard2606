@@ -6,6 +6,7 @@ export type CreateElectricityReadingBody = {
   remainingKwh: number;
   didRecharge?: boolean;
   rechargeKwh?: number | null;
+  rechargeAmountYuan?: number | null;
   note?: string;
 };
 
@@ -20,6 +21,7 @@ type ElectricityReadingForEstimate = {
 
 const alertThresholdKwh = 15;
 const forecastWarningDays = 3;
+const electricityPriceYuanPerKwh = 0.63;
 
 @Injectable()
 export class ElectricityService {
@@ -45,6 +47,7 @@ export class ElectricityService {
     return {
       latest,
       alertThresholdKwh,
+      electricityPriceYuanPerKwh,
       dailyUsageKwh: estimate.dailyUsageKwh,
       validSegmentCount: estimate.validSegmentCount,
       ignoredSegmentCount: estimate.ignoredSegmentCount,
@@ -144,6 +147,7 @@ export class ElectricityService {
       remainingKwh?: number;
       didRecharge?: boolean;
       rechargeKwh?: number | null;
+      rechargeAmountYuan?: number | null;
       note?: string | null;
     } = {};
 
@@ -165,8 +169,25 @@ export class ElectricityService {
       data.rechargeKwh = body.rechargeKwh === null ? null : this.parseKwh(body.rechargeKwh, '充值电量不能为负数');
     }
 
+    if (body.rechargeAmountYuan !== undefined) {
+      data.rechargeAmountYuan =
+        body.rechargeAmountYuan === null
+          ? null
+          : this.parseMoney(body.rechargeAmountYuan, '充值金额不能为负数');
+    }
+
+    if (
+      body.didRecharge &&
+      body.rechargeKwh === undefined &&
+      data.rechargeAmountYuan !== undefined &&
+      data.rechargeAmountYuan !== null
+    ) {
+      data.rechargeKwh = this.convertYuanToKwh(data.rechargeAmountYuan);
+    }
+
     if (body.didRecharge === false) {
       data.rechargeKwh = null;
+      data.rechargeAmountYuan = null;
     }
 
     if (body.note !== undefined) {
@@ -184,6 +205,7 @@ export class ElectricityService {
       remainingKwh: data.remainingKwh as number,
       didRecharge: data.didRecharge ?? false,
       rechargeKwh: data.rechargeKwh,
+      rechargeAmountYuan: data.rechargeAmountYuan,
       note: data.note,
     };
   }
@@ -206,6 +228,20 @@ export class ElectricityService {
     }
 
     return numberValue;
+  }
+
+  private parseMoney(value: number | undefined, message: string) {
+    const numberValue = Number(value);
+
+    if (!Number.isFinite(numberValue) || numberValue < 0) {
+      throw new BadRequestException(message);
+    }
+
+    return numberValue;
+  }
+
+  private convertYuanToKwh(value: number) {
+    return Math.round((value / electricityPriceYuanPerKwh) * 100) / 100;
   }
 
   private async ensureOwnReading(userId: string, id: string) {

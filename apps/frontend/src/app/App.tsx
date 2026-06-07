@@ -1998,13 +1998,13 @@ function ElectricityPage() {
   const [recordedAt, setRecordedAt] = useState(() => toDateTimeLocalValue(new Date().toISOString()));
   const [remainingKwh, setRemainingKwh] = useState('');
   const [didRecharge, setDidRecharge] = useState(false);
-  const [rechargeKwh, setRechargeKwh] = useState('');
+  const [rechargeAmountYuan, setRechargeAmountYuan] = useState('');
   const [note, setNote] = useState('');
   const [editingReadingId, setEditingReadingId] = useState<string | null>(null);
   const [editRecordedAt, setEditRecordedAt] = useState('');
   const [editRemainingKwh, setEditRemainingKwh] = useState('');
   const [editDidRecharge, setEditDidRecharge] = useState(false);
-  const [editRechargeKwh, setEditRechargeKwh] = useState('');
+  const [editRechargeAmountYuan, setEditRechargeAmountYuan] = useState('');
   const [editNote, setEditNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -2057,14 +2057,15 @@ function ElectricityPage() {
         recordedAt: new Date(recordedAt).toISOString(),
         remainingKwh: Number(remainingKwh),
         didRecharge,
-        rechargeKwh: didRecharge && rechargeKwh ? Number(rechargeKwh) : null,
+        rechargeAmountYuan: didRecharge && rechargeAmountYuan ? Number(rechargeAmountYuan) : null,
+        rechargeKwh: didRecharge && rechargeAmountYuan ? convertYuanToKwh(Number(rechargeAmountYuan)) : null,
         note,
       });
       setMessage('电费读数已保存。');
       setRecordedAt(toDateTimeLocalValue(new Date().toISOString()));
       setRemainingKwh('');
       setDidRecharge(false);
-      setRechargeKwh('');
+      setRechargeAmountYuan('');
       setNote('');
       await refreshElectricityPage();
     } catch (createError) {
@@ -2079,7 +2080,13 @@ function ElectricityPage() {
     setEditRecordedAt(toDateTimeLocalValue(reading.recordedAt));
     setEditRemainingKwh(String(reading.remainingKwh));
     setEditDidRecharge(reading.didRecharge);
-    setEditRechargeKwh(reading.rechargeKwh === null ? '' : String(reading.rechargeKwh));
+    setEditRechargeAmountYuan(
+      reading.rechargeAmountYuan === null
+        ? reading.rechargeKwh === null
+          ? ''
+          : String(convertKwhToYuan(reading.rechargeKwh))
+        : String(reading.rechargeAmountYuan),
+    );
     setEditNote(reading.note ?? '');
     setMessage('');
     setError('');
@@ -2090,7 +2097,7 @@ function ElectricityPage() {
     setEditRecordedAt('');
     setEditRemainingKwh('');
     setEditDidRecharge(false);
-    setEditRechargeKwh('');
+    setEditRechargeAmountYuan('');
     setEditNote('');
     setIsSavingEdit(false);
   }
@@ -2116,7 +2123,10 @@ function ElectricityPage() {
         recordedAt: new Date(editRecordedAt).toISOString(),
         remainingKwh: Number(editRemainingKwh),
         didRecharge: editDidRecharge,
-        rechargeKwh: editDidRecharge && editRechargeKwh ? Number(editRechargeKwh) : null,
+        rechargeAmountYuan: editDidRecharge && editRechargeAmountYuan ? Number(editRechargeAmountYuan) : null,
+        rechargeKwh: editDidRecharge && editRechargeAmountYuan
+          ? convertYuanToKwh(Number(editRechargeAmountYuan))
+          : null,
         note: editNote,
       });
       setMessage('电费读数已更新。');
@@ -2166,7 +2176,7 @@ function ElectricityPage() {
             <div className="electricity-metric">
               <span>估算日耗电</span>
               <strong>{summary ? formatKwh(summary.dailyUsageKwh) : '--'}</strong>
-              <small>{summary ? `${summary.validSegmentCount} 段有效，${summary.ignoredSegmentCount} 段跳过` : '需要至少两次读数'}</small>
+              <small>{summary ? `电价 ${summary.electricityPriceYuanPerKwh} 元/度` : '需要至少两次读数'}</small>
             </div>
             <div className="electricity-metric">
               <span>低于 15 度</span>
@@ -2217,17 +2227,24 @@ function ElectricityPage() {
           </div>
 
           {didRecharge ? (
+            <>
             <label>
-              <span>充值电量</span>
+              <span>充值金额</span>
               <input
                 min={0}
                 step="0.01"
                 type="number"
-                value={rechargeKwh}
-                onChange={(event) => setRechargeKwh(event.target.value)}
-                placeholder="不知道可留空，本段不参与估算"
+                value={rechargeAmountYuan}
+                onChange={(event) => setRechargeAmountYuan(event.target.value)}
+                placeholder="例如：20"
               />
             </label>
+            <p className="muted electricity-conversion">
+              {rechargeAmountYuan
+                ? `按 0.63 元/度折合 ${formatKwh(convertYuanToKwh(Number(rechargeAmountYuan)))}`
+                : '填写充值金额后自动折算电量。'}
+            </p>
+            </>
           ) : null}
 
           <label>
@@ -2281,10 +2298,17 @@ function ElectricityPage() {
                       </label>
                     </div>
                     {editDidRecharge ? (
-                      <label>
-                        <span>充值电量</span>
-                        <input min={0} step="0.01" type="number" value={editRechargeKwh} onChange={(event) => setEditRechargeKwh(event.target.value)} />
-                      </label>
+                      <>
+                        <label>
+                          <span>充值金额</span>
+                          <input min={0} step="0.01" type="number" value={editRechargeAmountYuan} onChange={(event) => setEditRechargeAmountYuan(event.target.value)} />
+                        </label>
+                        <p className="muted electricity-conversion">
+                          {editRechargeAmountYuan
+                            ? `按 0.63 元/度折合 ${formatKwh(convertYuanToKwh(Number(editRechargeAmountYuan)))}`
+                            : '填写充值金额后自动折算电量。'}
+                        </p>
+                      </>
                     ) : null}
                     <label>
                       <span>备注</span>
@@ -2310,7 +2334,7 @@ function ElectricityPage() {
                       </div>
                       <div className="task-meta">
                         {reading.didRecharge ? (
-                          <span>{reading.rechargeKwh === null ? '充值：未填电量' : `充值：${formatKwh(reading.rechargeKwh)}`}</span>
+                          <span>{formatRechargeReading(reading)}</span>
                         ) : (
                           <span>未充值</span>
                         )}
@@ -2395,6 +2419,26 @@ function formatDate(value: string) {
 
 function formatKwh(value: number) {
   return `${Number(value.toFixed(2))} 度`;
+}
+
+function convertYuanToKwh(value: number) {
+  return Math.round((value / 0.63) * 100) / 100;
+}
+
+function convertKwhToYuan(value: number) {
+  return Math.round(value * 0.63 * 100) / 100;
+}
+
+function formatRechargeReading(reading: ElectricityReading) {
+  if (reading.rechargeAmountYuan !== null && reading.rechargeKwh !== null) {
+    return `充值：${Number(reading.rechargeAmountYuan.toFixed(2))} 元，折合 ${formatKwh(reading.rechargeKwh)}`;
+  }
+
+  if (reading.rechargeKwh !== null) {
+    return `充值：${formatKwh(reading.rechargeKwh)}`;
+  }
+
+  return '充值：未填金额';
 }
 
 function formatThresholdEstimate(summary: ElectricitySummary | null) {

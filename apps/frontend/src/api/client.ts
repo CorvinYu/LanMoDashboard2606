@@ -161,6 +161,7 @@ export type ElectricityReading = {
   remainingKwh: number;
   didRecharge: boolean;
   rechargeKwh: number | null;
+  rechargeAmountYuan: number | null;
   note: string | null;
   createdAt: string;
   updatedAt: string;
@@ -169,6 +170,7 @@ export type ElectricityReading = {
 export type ElectricitySummary = {
   latest: ElectricityReading | null;
   alertThresholdKwh: number;
+  electricityPriceYuanPerKwh: number;
   dailyUsageKwh: number;
   validSegmentCount: number;
   ignoredSegmentCount: number;
@@ -182,6 +184,7 @@ export type CreateElectricityReadingInput = {
   remainingKwh: number;
   didRecharge?: boolean;
   rechargeKwh?: number | null;
+  rechargeAmountYuan?: number | null;
   note?: string;
 };
 
