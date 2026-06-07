@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma.service';
 import { AuthenticatedUser, JwtPayload } from './auth.types';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 
 @Injectable()
 export class AuthService {
@@ -78,6 +79,54 @@ export class AuthService {
     return { ok: true };
   }
 
+  async updateMe(userId: string, input: UpdateAccountDto) {
+    const data: {
+      email?: string;
+      passwordHash?: string;
+      displayName?: string;
+    } = {};
+
+    if (input.email !== undefined) {
+      const email = this.normalizeEmail(input.email);
+      const existing = await this.prisma.user.findUnique({
+        where: { email },
+        select: { id: true },
+      });
+
+      if (existing && existing.id !== userId) {
+        throw new BadRequestException('这个邮箱已经注册');
+      }
+
+      data.email = email;
+    }
+
+    if (input.displayName !== undefined) {
+      const displayName = input.displayName.trim();
+
+      if (!displayName) {
+        throw new BadRequestException('显示名称不能为空');
+      }
+
+      data.displayName = displayName;
+    }
+
+    if (input.password !== undefined) {
+      data.passwordHash = await argon2.hash(input.password);
+    }
+
+    if (Object.keys(data).length === 0) {
+      return this.me(await this.getUser(userId));
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: this.userSelect,
+    });
+
+    return this.createAuthResponse(user);
+  }
+
   private async verifyPassword(passwordHash: string, password: string) {
     if (passwordHash === 'single-user-mvp') {
       return false;
@@ -100,6 +149,13 @@ export class AuthService {
       accessToken: await this.jwt.signAsync(payload),
       user,
     };
+  }
+
+  private async getUser(userId: string) {
+    return this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: this.userSelect,
+    });
   }
 
   private canClaimExistingDefaultUser(email: string, passwordHash: string) {

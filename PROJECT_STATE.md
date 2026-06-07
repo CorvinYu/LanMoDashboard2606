@@ -54,7 +54,8 @@ reuse mature components, keep business code focused, and avoid vendor lock-in.
   - login
   - current user
   - logout
-  - JWT-protected task, countdown and routine APIs
+  - account management page for email, display name, and password updates
+  - JWT-protected task, countdown and scheduled check APIs
   - existing default local user can be claimed by registering the default email
 - MVP task management:
   - create task

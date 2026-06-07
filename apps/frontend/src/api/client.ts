@@ -234,6 +234,13 @@ export function getMe() {
   return request<{ user: AuthUser }>('/auth/me');
 }
 
+export function updateMe(input: { email?: string; password?: string; displayName?: string }) {
+  return request<AuthResponse>('/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
 export function logout() {
   return request<{ ok: boolean }>('/auth/logout', {
     method: 'POST',

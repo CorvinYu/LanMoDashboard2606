@@ -300,8 +300,15 @@ h1 {
   border-radius: 8px;
   background: #ffffff;
   color: #354148;
+  font: inherit;
   font-size: 0.9rem;
   font-weight: 800;
+  cursor: pointer;
+}
+
+.user-pill:hover {
+  border-color: #b9d8c4;
+  background: #edf3ee;
 }
 
 .user-pill span {
@@ -372,6 +379,14 @@ h1 {
 .auth-note {
   margin-top: 12px;
   font-size: 0.9rem;
+}
+
+.account-page {
+  max-width: 560px;
+}
+
+.account-panel {
+  width: 100%;
 }
 
 .task-workspace {
@@ -873,6 +888,12 @@ textarea {
 .routine-compact-list {
   display: grid;
   gap: 8px;
+}
+
+.routine-recent-list {
+  max-height: 172px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .routine-compact-item {

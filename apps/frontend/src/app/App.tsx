@@ -56,11 +56,12 @@ import {
   skipRoutineHabit,
   syncMicrosoftTodo,
   updateCountdownEvent,
+  updateMe,
   updateRoutineHabit,
   updateTask,
 } from '../api/client';
 
-type PageKey = 'tasks' | 'routine' | 'calendar' | 'reminders' | 'scores' | 'ai';
+type PageKey = 'tasks' | 'routine' | 'calendar' | 'reminders' | 'scores' | 'ai' | 'account';
 
 const navigationItems: Array<{
   key: PageKey;
@@ -76,7 +77,7 @@ const navigationItems: Array<{
   },
   {
     key: 'routine',
-    title: '规律作息',
+    title: '定时检查',
     description: '固定节奏和每日结构',
     icon: Clock,
   },
@@ -157,7 +158,12 @@ export function App() {
     return () => setUnauthorizedHandler(null);
   }, []);
 
-  const currentPage = navigationItems.find((item) => item.key === activePage) ?? navigationItems[0];
+  const currentPage = navigationItems.find((item) => item.key === activePage) ?? {
+    key: 'account',
+    title: '账号管理',
+    description: '账号、邮箱和显示名称',
+    icon: User,
+  };
 
   function handleAuthSuccess(accessToken: string, user: AuthUser) {
     setAuthToken(accessToken);
@@ -255,10 +261,10 @@ export function App() {
             </div>
           </div>
           <div className="topbar-actions">
-            <div className="user-pill">
+            <button className="user-pill" onClick={() => setActivePage('account')} type="button">
               <User size={16} />
               <span>{currentUser.displayName}</span>
-            </div>
+            </button>
             <div className={`status status-${apiStatus}`}>
               <Activity size={16} />
               <span>API {apiStatus}</span>
@@ -275,8 +281,109 @@ export function App() {
         {activePage === 'reminders' ? <PlaceholderPage title="提醒" /> : null}
         {activePage === 'scores' ? <PlaceholderPage title="每日评分" /> : null}
         {activePage === 'ai' ? <PlaceholderPage title="AI 助手" /> : null}
+        {activePage === 'account' ? (
+          <AccountPage currentUser={currentUser} onAccountUpdated={handleAuthSuccess} />
+        ) : null}
       </section>
     </main>
+  );
+}
+
+function AccountPage({
+  currentUser,
+  onAccountUpdated,
+}: {
+  currentUser: AuthUser;
+  onAccountUpdated: (accessToken: string, user: AuthUser) => void;
+}) {
+  const [email, setEmail] = useState(currentUser.email);
+  const [displayName, setDisplayName] = useState(currentUser.displayName);
+  const [password, setPassword] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setEmail(currentUser.email);
+    setDisplayName(currentUser.displayName);
+  }, [currentUser]);
+
+  async function handleSaveAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSaving(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const result = await updateMe({
+        email,
+        displayName,
+        ...(password ? { password } : {}),
+      });
+
+      onAccountUpdated(result.accessToken, result.user);
+      setPassword('');
+      setMessage('账号信息已更新。');
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : '账号更新失败');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <section className="account-page">
+      <div className="task-panel account-panel">
+        <div className="section-heading">
+          <div>
+            <h2>账号信息</h2>
+          </div>
+        </div>
+
+        <form className="task-form" onSubmit={handleSaveAccount}>
+          <label>
+            <span>邮箱</span>
+            <input
+              autoComplete="email"
+              inputMode="email"
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              type="email"
+              value={email}
+            />
+          </label>
+
+          <label>
+            <span>显示名称</span>
+            <input
+              autoComplete="name"
+              onChange={(event) => setDisplayName(event.target.value)}
+              required
+              value={displayName}
+            />
+          </label>
+
+          <label>
+            <span>新密码</span>
+            <input
+              autoComplete="new-password"
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="不修改请留空"
+              type="password"
+              value={password}
+            />
+          </label>
+
+          <button className="primary-button" disabled={isSaving} type="submit">
+            <Save size={18} />
+            <span>{isSaving ? '保存中' : '保存账号信息'}</span>
+          </button>
+        </form>
+
+        {message ? <p className="success-text">{message}</p> : null}
+        {error ? <p className="error-text">{error}</p> : null}
+      </div>
+    </section>
   );
 }
 
@@ -849,7 +956,6 @@ function TaskDashboardPage({
         <div className="task-panel integration-panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">集成</p>
               <h2>Microsoft To Do</h2>
             </div>
           </div>
@@ -873,7 +979,6 @@ function TaskDashboardPage({
         <div className="task-panel countdown-panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">事件</p>
               <h2>新增倒计时</h2>
             </div>
           </div>
@@ -933,7 +1038,6 @@ function TaskDashboardPage({
         <div className="task-panel task-list-panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">列表</p>
               <h2>当前任务</h2>
             </div>
             <div className="heading-actions">
@@ -965,7 +1069,7 @@ function TaskDashboardPage({
                     </div>
                     {habit.description && <p>{habit.description}</p>}
                     <div className="task-meta">
-                      <span>规律事项</span>
+                      <span>检查事项</span>
                       <span>预期：{formatDate(habit.nextDueAt)}</span>
                       <span className={`countdown ${getCountdownState(habit.nextDueAt, now)}`}>
                         {formatCountdown(habit.nextDueAt, now)}
@@ -973,7 +1077,7 @@ function TaskDashboardPage({
                     </div>
                   </div>
                   <div className="task-actions">
-                    <button aria-label="规律事项打卡" onClick={() => handleCheckInRoutineHabitFromTaskList(habit.id)} type="button">
+                    <button aria-label="检查事项打卡" onClick={() => handleCheckInRoutineHabitFromTaskList(habit.id)} type="button">
                       <Check size={18} />
                     </button>
                   </div>
@@ -1088,7 +1192,6 @@ function TaskDashboardPage({
         <div className="task-panel countdown-list-panel">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">列表</p>
               <h2>倒计时表</h2>
             </div>
             <div className="heading-actions">
@@ -1349,7 +1452,7 @@ function RoutinePage() {
       setRecentCheckIns(loadedCheckIns);
       setSleepLogs(loadedSleepLogs);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : '规律作息加载失败');
+      setError(loadError instanceof Error ? loadError.message : '定时检查加载失败');
     } finally {
       setIsLoadingRoutine(false);
     }
@@ -1359,7 +1462,7 @@ function RoutinePage() {
     event.preventDefault();
 
     if (!title.trim()) {
-      setError('请输入规律事项标题');
+      setError('请输入检查事项标题');
       return;
     }
 
@@ -1383,7 +1486,7 @@ function RoutinePage() {
         reminderEnabled,
         addToToday,
       });
-      setRoutineMessage('规律事项已创建。');
+      setRoutineMessage('检查事项已创建。');
       setTitle('');
       setDescription('');
       setCategory('生活');
@@ -1395,7 +1498,7 @@ function RoutinePage() {
       setAddToToday(false);
       await refreshRoutinePage();
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : '规律事项创建失败');
+      setError(createError instanceof Error ? createError.message : '检查事项创建失败');
     }
   }
 
@@ -1506,7 +1609,7 @@ function RoutinePage() {
     }
 
     if (!editHabitTitle.trim()) {
-      setError('请输入规律事项标题');
+      setError('请输入检查事项标题');
       return;
     }
 
@@ -1531,11 +1634,11 @@ function RoutinePage() {
         reminderEnabled: editHabitReminderEnabled,
         addToToday: editHabitAddToToday,
       });
-      setRoutineMessage('规律事项已更新。');
+      setRoutineMessage('检查事项已更新。');
       handleCancelHabitEdit();
       await refreshRoutinePage();
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : '规律事项更新失败');
+      setError(updateError instanceof Error ? updateError.message : '检查事项更新失败');
     } finally {
       setIsSavingHabitEdit(false);
     }
@@ -1547,10 +1650,10 @@ function RoutinePage() {
 
     try {
       await deleteRoutineHabit(id);
-      setRoutineMessage('规律事项已删除。');
+      setRoutineMessage('检查事项已删除。');
       await refreshRoutinePage();
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : '规律事项删除失败');
+      setError(deleteError instanceof Error ? deleteError.message : '检查事项删除失败');
     }
   }
 
@@ -1561,7 +1664,7 @@ function RoutinePage() {
       <div className="task-panel routine-form-panel">
         <div className="section-heading">
           <div>
-            <h2>新增规律事项</h2>
+            <h2>新增检查事项</h2>
           </div>
         </div>
 
@@ -1657,7 +1760,7 @@ function RoutinePage() {
 
           <button className="primary-button" type="submit">
             <Plus size={18} />
-            <span>新增规律事项</span>
+            <span>新增检查事项</span>
           </button>
         </form>
       </div>
@@ -1665,7 +1768,7 @@ function RoutinePage() {
       <div className="task-panel routine-list-panel">
         <div className="section-heading">
           <div>
-            <h2>规律事项</h2>
+            <h2>检查事项</h2>
           </div>
           <div className="heading-actions">
             <span className="counter">{overdueCount} 个逾期</span>
@@ -1680,9 +1783,9 @@ function RoutinePage() {
         {routineMessage && <p className="success-text">{routineMessage}</p>}
 
         {isLoadingRoutine ? (
-          <p className="muted">正在加载规律事项</p>
+          <p className="muted">正在加载检查事项</p>
         ) : habits.length === 0 ? (
-          <p className="muted">还没有规律事项，先创建一个。</p>
+          <p className="muted">还没有检查事项，先创建一个。</p>
         ) : (
         <div className="routine-timeline">
           {habits.map((habit) => (
@@ -1783,10 +1886,10 @@ function RoutinePage() {
                   <button aria-label="跳过本轮" onClick={() => handleSkipHabit(habit.id)} type="button">
                     <RotateCcw size={18} />
                   </button>
-                  <button aria-label="编辑规律事项" onClick={() => handleStartHabitEdit(habit)} type="button">
+                  <button aria-label="编辑检查事项" onClick={() => handleStartHabitEdit(habit)} type="button">
                     <Edit3 size={18} />
                   </button>
-                  <button aria-label="删除规律事项" onClick={() => handleDeleteHabit(habit.id)} type="button">
+                  <button aria-label="删除检查事项" onClick={() => handleDeleteHabit(habit.id)} type="button">
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -1806,10 +1909,10 @@ function RoutinePage() {
         {recentCheckIns.length === 0 ? (
           <p className="muted">还没有打卡记录。</p>
         ) : (
-          <div className="routine-compact-list">
-            {recentCheckIns.slice(0, 8).map((item) => (
+          <div className="routine-compact-list routine-recent-list">
+            {recentCheckIns.slice(0, 10).map((item) => (
               <div className="routine-compact-item" key={item.id}>
-                <strong>{item.habit?.title ?? '规律事项'}</strong>
+                <strong>{item.habit?.title ?? '检查事项'}</strong>
                 <span>{checkInStatusLabels[item.status]} · {formatDate(item.performedAt)}</span>
               </div>
             ))}
