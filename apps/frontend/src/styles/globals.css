@@ -1017,6 +1017,11 @@ textarea {
   color: #8a5f12;
 }
 
+.electricity-conversion {
+  margin-top: -4px;
+  font-size: 0.86rem;
+}
+
 .electricity-reading-list {
   display: grid;
   gap: 10px;

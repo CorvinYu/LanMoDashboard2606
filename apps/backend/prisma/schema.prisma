@@ -15,18 +15,18 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  tasks           Task[]
-  calendarEvents  CalendarEvent[]
-  reminders       Reminder[]
-  dailyScores     DailyScore[]
-  conversations   AiConversation[]
-  suggestions     AiSuggestion[]
+  tasks               Task[]
+  calendarEvents      CalendarEvent[]
+  reminders           Reminder[]
+  dailyScores         DailyScore[]
+  conversations       AiConversation[]
+  suggestions         AiSuggestion[]
   integrationAccounts IntegrationAccount[]
-  taskIntegrations     TaskIntegration[]
-  routineHabits        RoutineHabit[]
-  routineCheckIns      RoutineCheckIn[]
-  sleepLogs            SleepLog[]
-  electricityReadings  ElectricityReading[]
+  taskIntegrations    TaskIntegration[]
+  routineHabits       RoutineHabit[]
+  routineCheckIns     RoutineCheckIn[]
+  sleepLogs           SleepLog[]
+  electricityReadings ElectricityReading[]
 
   @@map("users")
 }
@@ -43,8 +43,8 @@ model Task {
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reminders Reminder[]
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders    Reminder[]
   integrations TaskIntegration[]
 
   @@map("tasks")
@@ -143,9 +143,9 @@ model AiSuggestion {
   createdAt      DateTime         @default(now()) @map("created_at")
   appliedAt      DateTime?        @map("applied_at")
 
-  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  conversation  AiConversation?          @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  applications  SuggestionApplication[]
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation AiConversation?         @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  applications SuggestionApplication[]
 
   @@map("ai_suggestions")
 }
@@ -260,15 +260,16 @@ model SleepLog {
 }
 
 model ElectricityReading {
-  id            String   @id @default(uuid())
-  userId        String   @map("user_id")
-  recordedAt    DateTime @map("recorded_at")
-  remainingKwh  Float    @map("remaining_kwh")
-  didRecharge   Boolean  @default(false) @map("did_recharge")
-  rechargeKwh   Float?   @map("recharge_kwh")
-  note          String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  userId             String   @map("user_id")
+  recordedAt         DateTime @map("recorded_at")
+  remainingKwh       Float    @map("remaining_kwh")
+  didRecharge        Boolean  @default(false) @map("did_recharge")
+  rechargeKwh        Float?   @map("recharge_kwh")
+  rechargeAmountYuan Float?   @map("recharge_amount_yuan")
+  note               String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

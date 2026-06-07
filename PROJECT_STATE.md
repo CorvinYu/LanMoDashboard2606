@@ -67,7 +67,8 @@ reuse mature components, keep business code focused, and avoid vendor lock-in.
 - Same-origin `/api` proxy for Docker/Nginx and Vite dev server, so mobile devices can access the same backend through the frontend host.
 - Electricity monitoring MVP:
   - record current or historical remaining kWh readings
-  - record whether recharge happened and optional recharge kWh
+  - record whether recharge happened and recharge amount in yuan
+  - convert recharge amount to kWh with 0.63 yuan/kWh
   - edit and delete readings
   - estimate recent daily usage with weighted moving average
   - warn when remaining power is below 15 kWh or likely to cross that threshold soon
