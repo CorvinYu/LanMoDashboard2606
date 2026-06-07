@@ -41,6 +41,7 @@ reuse mature components, keep business code focused, and avoid vendor lock-in.
   - calendar_events
   - reminders
   - daily_scores
+  - electricity_readings
   - ai_conversations
   - ai_messages
   - ai_suggestions
@@ -64,6 +65,12 @@ reuse mature components, keep business code focused, and avoid vendor lock-in.
   - archive/delete task
   - priority and due date fields
 - Same-origin `/api` proxy for Docker/Nginx and Vite dev server, so mobile devices can access the same backend through the frontend host.
+- Electricity monitoring MVP:
+  - record current or historical remaining kWh readings
+  - record whether recharge happened and optional recharge kWh
+  - edit and delete readings
+  - estimate recent daily usage with weighted moving average
+  - warn when remaining power is below 15 kWh or likely to cross that threshold soon
 
 ## Important AI Rule
 

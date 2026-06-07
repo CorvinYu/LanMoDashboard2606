@@ -4,6 +4,7 @@ import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { HealthController } from './health.controller';
+import { ElectricityModule } from './electricity/electricity.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { RoutineModule } from './routine/routine.module';
@@ -25,6 +26,7 @@ import { CoreModule } from './core.module';
     SuggestionsModule,
     IntegrationsModule,
     RoutineModule,
+    ElectricityModule,
   ],
   controllers: [HealthController],
 })

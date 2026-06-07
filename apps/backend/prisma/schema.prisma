@@ -26,6 +26,7 @@ model User {
   routineHabits        RoutineHabit[]
   routineCheckIns      RoutineCheckIn[]
   sleepLogs            SleepLog[]
+  electricityReadings  ElectricityReading[]
 
   @@map("users")
 }
@@ -256,6 +257,23 @@ model SleepLog {
 
   @@index([userId, wokeUpAt])
   @@map("sleep_logs")
+}
+
+model ElectricityReading {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  recordedAt    DateTime @map("recorded_at")
+  remainingKwh  Float    @map("remaining_kwh")
+  didRecharge   Boolean  @default(false) @map("did_recharge")
+  rechargeKwh   Float?   @map("recharge_kwh")
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, recordedAt])
+  @@map("electricity_readings")
 }
 
 enum TaskStatus {
