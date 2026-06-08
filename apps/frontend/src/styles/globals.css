@@ -1159,11 +1159,27 @@ textarea {
   margin-top: 18px;
 }
 
+.chart-range-field {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.chart-range-field select {
+  min-height: 32px;
+  width: auto;
+  min-width: 88px;
+  padding: 6px 28px 6px 10px;
+}
+
 .electricity-chart {
   display: grid;
   gap: 10px;
   margin-top: 10px;
-  padding: 14px;
+  padding: 10px 12px 12px;
   border: 1px solid #e0e5df;
   border-radius: 8px;
   background: #fbfcfa;
@@ -1178,6 +1194,23 @@ textarea {
 .electricity-chart-axis {
   stroke: #ccd5cf;
   stroke-width: 1;
+  pointer-events: none;
+}
+
+.electricity-chart-grid {
+  stroke: #e7ece8;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.electricity-chart-tick {
+  fill: #6a747b;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.electricity-chart-tick-x {
+  font-size: 9px;
 }
 
 .electricity-chart-line {
@@ -1185,22 +1218,44 @@ textarea {
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.electricity-chart-hit {
+  fill: transparent;
+  cursor: pointer;
+  pointer-events: all;
 }
 
 .electricity-chart-point {
   fill: #225a49;
+  pointer-events: none;
 }
 
 .electricity-chart-point-estimated {
   fill: #ffffff;
   stroke: #a13d2d;
   stroke-width: 2;
+  pointer-events: none;
 }
 
 .electricity-chart-estimated-link {
   stroke: #a13d2d;
   stroke-width: 2;
   stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
+.electricity-chart-tooltip rect {
+  fill: rgb(23 32 38 / 92%);
+  pointer-events: none;
+}
+
+.electricity-chart-tooltip-title,
+.electricity-chart-tooltip-value {
+  fill: #ffffff;
+  font-size: 11px;
+  pointer-events: none;
 }
 
 .electricity-chart-legend,

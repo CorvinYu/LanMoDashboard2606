@@ -19,7 +19,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CountdownEvent,
   AuthUser,
@@ -182,6 +182,14 @@ const mediaRatingProviderLabels: Record<MediaRatingProvider, string> = {
   OTHER: '其他',
 };
 
+const electricityRangeOptions = [
+  { value: 7, label: '7天' },
+  { value: 30, label: '30天' },
+  { value: 60, label: '60天' },
+  { value: 90, label: '90天' },
+  { value: 365, label: '365天' },
+] as const;
+
 const countdownRefreshMs = 30 * 60 * 1000;
 
 type CurrentTaskScore = {
@@ -212,6 +220,14 @@ type MediaExternalRatingDraft = {
   ratingCount: string;
   sourceUrl: string;
   fetchedAt: string;
+};
+
+type ElectricityChartPoint = {
+  label: string;
+  value: number;
+  isEstimated: boolean;
+  readingId: string | null;
+  timestampMs: number;
 };
 
 export function App() {
@@ -2858,6 +2874,7 @@ function RoutinePage() {
 function ElectricityPage() {
   const [summary, setSummary] = useState<ElectricitySummary | null>(null);
   const [readings, setReadings] = useState<ElectricityReading[]>([]);
+  const readingRefs = useRef<Record<string, HTMLElement | null>>({});
   const [recordedAt, setRecordedAt] = useState(() => toDateTimeLocalValue(new Date().toISOString()));
   const [remainingKwh, setRemainingKwh] = useState('');
   const [didRecharge, setDidRecharge] = useState(false);
@@ -2875,6 +2892,7 @@ function ElectricityPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => new Date());
+  const [selectedRangeDays, setSelectedRangeDays] = useState<(typeof electricityRangeOptions)[number]['value']>(30);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -2889,8 +2907,8 @@ function ElectricityPage() {
   }, []);
 
   const chartPoints = useMemo(
-    () => buildElectricityChartPoints(readings, summary, now),
-    [now, readings, summary],
+    () => buildElectricityChartPoints(readings, summary, now, selectedRangeDays),
+    [now, readings, selectedRangeDays, summary],
   );
   const liveEstimatedCurrentKwh = useMemo(
     () => getLiveEstimatedCurrentKwh(summary, now),
@@ -3033,6 +3051,20 @@ function ElectricityPage() {
     }
   }
 
+  function handleSelectChartPoint(point: ElectricityChartPoint) {
+    if (!point.readingId) {
+      return;
+    }
+
+    const element = readingRefs.current[point.readingId];
+
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   return (
     <section className="electricity-page">
       <div className="task-panel electricity-summary-panel">
@@ -3082,9 +3114,26 @@ function ElectricityPage() {
               <div>
                 <h2>剩余电量曲线</h2>
               </div>
-              <span className="counter">{chartPoints.length} 个点</span>
+              <div className="heading-actions">
+                <label className="chart-range-field">
+                  <span>范围</span>
+                  <select
+                    value={selectedRangeDays}
+                    onChange={(event) =>
+                      setSelectedRangeDays(Number(event.target.value) as (typeof electricityRangeOptions)[number]['value'])
+                    }
+                  >
+                    {electricityRangeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span className="counter">{chartPoints.length} 个点</span>
+              </div>
             </div>
-            <ElectricityLineChart points={chartPoints} />
+            <ElectricityLineChart onPointSelect={handleSelectChartPoint} points={chartPoints} />
           </div>
         ) : null}
 
@@ -3180,7 +3229,13 @@ function ElectricityPage() {
         ) : (
           <div className="electricity-reading-list">
             {readings.map((reading) => (
-              <article className="electricity-reading-item" key={reading.id}>
+              <article
+                className="electricity-reading-item"
+                key={reading.id}
+                ref={(element) => {
+                  readingRefs.current[reading.id] = element;
+                }}
+              >
                 {editingReadingId === reading.id ? (
                   <form className="task-edit-form" onSubmit={handleSaveReadingEdit}>
                     <div className="form-row">
@@ -3264,24 +3319,34 @@ function ElectricityPage() {
 
 function ElectricityLineChart({
   points,
+  onPointSelect,
 }: {
-  points: Array<{ label: string; value: number; isEstimated: boolean }>;
+  points: ElectricityChartPoint[];
+  onPointSelect: (point: ElectricityChartPoint) => void;
 }) {
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const width = 720;
-  const height = 220;
-  const paddingX = 20;
-  const paddingY = 18;
+  const height = 156;
+  const paddingLeft = 72;
+  const paddingRight = 28;
+  const paddingTop = 14;
+  const paddingBottom = 38;
   const values = points.map((point) => point.value);
-  const minValue = Math.min(...values);
+  const minValue = 0;
   const maxValue = Math.max(...values);
   const range = Math.max(maxValue - minValue, 1);
+  const yTicks = [maxValue, minValue + range / 2, minValue].map((value) => roundToTwo(value));
+  const minTimestamp = Math.min(...points.map((point) => point.timestampMs));
+  const maxTimestamp = Math.max(...points.map((point) => point.timestampMs));
+  const timeRange = Math.max(maxTimestamp - minTimestamp, 1);
 
   const plotPoints = points.map((point, index) => {
     const x =
       points.length === 1
         ? width / 2
-        : paddingX + (index / (points.length - 1)) * (width - paddingX * 2);
-    const y = paddingY + ((maxValue - point.value) / range) * (height - paddingY * 2);
+        : paddingLeft + ((point.timestampMs - minTimestamp) / timeRange) * (width - paddingLeft - paddingRight);
+    const y =
+      paddingTop + ((maxValue - point.value) / range) * (height - paddingTop - paddingBottom);
 
     return { ...point, x, y };
   });
@@ -3289,25 +3354,61 @@ function ElectricityLineChart({
   const polyline = plotPoints.map((point) => `${point.x},${point.y}`).join(' ');
   const actualPoints = plotPoints.filter((point) => !point.isEstimated);
   const estimatedPoint = plotPoints.find((point) => point.isEstimated) ?? null;
+  const hoveredPoint = hoveredPointIndex === null ? null : plotPoints[hoveredPointIndex];
 
   return (
     <div className="electricity-chart">
       <svg aria-label="剩余电量曲线图" viewBox={`0 0 ${width} ${height}`} role="img">
-        <line className="electricity-chart-axis" x1={paddingX} x2={paddingX} y1={paddingY} y2={height - paddingY} />
+        {yTicks.map((tick) => {
+          const y =
+            paddingTop + ((maxValue - tick) / range) * (height - paddingTop - paddingBottom);
+
+          return (
+            <g key={tick}>
+              <line
+                className="electricity-chart-grid"
+                x1={paddingLeft}
+                x2={width - paddingRight}
+                y1={y}
+                y2={y}
+              />
+              <text className="electricity-chart-tick" textAnchor="end" x={paddingLeft - 10} y={y + 4}>
+                {tick}
+              </text>
+            </g>
+          );
+        })}
         <line
           className="electricity-chart-axis"
-          x1={paddingX}
-          x2={width - paddingX}
-          y1={height - paddingY}
-          y2={height - paddingY}
+          x1={paddingLeft}
+          x2={paddingLeft}
+          y1={paddingTop}
+          y2={height - paddingBottom}
+        />
+        <line
+          className="electricity-chart-axis"
+          x1={paddingLeft}
+          x2={width - paddingRight}
+          y1={height - paddingBottom}
+          y2={height - paddingBottom}
         />
         <polyline className="electricity-chart-line" fill="none" points={polyline} />
         {actualPoints.map((point) => (
-          <circle className="electricity-chart-point" cx={point.x} cy={point.y} key={point.label} r="4" />
+          <g key={`${point.label}-${point.readingId ?? 'actual'}`}>
+            <circle
+              className="electricity-chart-hit"
+              cx={point.x}
+              cy={point.y}
+              onClick={() => onPointSelect(point)}
+              onMouseEnter={() => setHoveredPointIndex(plotPoints.indexOf(point))}
+              onMouseLeave={() => setHoveredPointIndex((current) => (current === plotPoints.indexOf(point) ? null : current))}
+              r="8"
+            />
+            <circle className="electricity-chart-point" cx={point.x} cy={point.y} r="4" />
+          </g>
         ))}
         {estimatedPoint ? (
           <>
-            <circle className="electricity-chart-point-estimated" cx={estimatedPoint.x} cy={estimatedPoint.y} r="5" />
             <line
               className="electricity-chart-estimated-link"
               x1={plotPoints[plotPoints.length - 2]?.x ?? estimatedPoint.x}
@@ -3315,7 +3416,58 @@ function ElectricityLineChart({
               y1={plotPoints[plotPoints.length - 2]?.y ?? estimatedPoint.y}
               y2={estimatedPoint.y}
             />
+            <circle
+              className="electricity-chart-hit"
+              cx={estimatedPoint.x}
+              cy={estimatedPoint.y}
+              onMouseEnter={() => setHoveredPointIndex(plotPoints.indexOf(estimatedPoint))}
+              onMouseLeave={() => setHoveredPointIndex((current) => (current === plotPoints.indexOf(estimatedPoint) ? null : current))}
+              r="8"
+            />
+            <circle className="electricity-chart-point-estimated" cx={estimatedPoint.x} cy={estimatedPoint.y} r="5" />
           </>
+        ) : null}
+        {plotPoints.map((point, index) =>
+          index === 0 || index === plotPoints.length - 1 || index === Math.floor(plotPoints.length / 2) ? (
+            <text
+              className="electricity-chart-tick electricity-chart-tick-x"
+              key={`${point.label}-x`}
+              textAnchor={index === 0 ? 'start' : index === plotPoints.length - 1 ? 'end' : 'middle'}
+              x={point.x}
+              y={height - 18}
+            >
+              <tspan x={point.x}>{formatChartDateDateLine(point.timestampMs)}</tspan>
+              <tspan dy="11" x={point.x}>
+                {formatChartDateTimeLine(point.timestampMs)}
+              </tspan>
+            </text>
+          ) : null,
+        )}
+        {hoveredPoint ? (
+          <g className="electricity-chart-tooltip">
+            <rect
+              height="38"
+              rx="8"
+              ry="8"
+              width="146"
+              x={Math.min(width - 150, Math.max(6, hoveredPoint.x - 73))}
+              y={Math.max(6, hoveredPoint.y - 48)}
+            />
+            <text
+              className="electricity-chart-tooltip-title"
+              x={Math.min(width - 142, Math.max(14, hoveredPoint.x - 65))}
+              y={Math.max(22, hoveredPoint.y - 32)}
+            >
+              {hoveredPoint.label}
+            </text>
+            <text
+              className="electricity-chart-tooltip-value"
+              x={Math.min(width - 142, Math.max(14, hoveredPoint.x - 65))}
+              y={Math.max(38, hoveredPoint.y - 16)}
+            >
+              {`${hoveredPoint.isEstimated ? '预测' : '实际'}：${formatKwh(hoveredPoint.value)}`}
+            </text>
+          </g>
         ) : null}
       </svg>
       <div className="electricity-chart-legend">
@@ -3329,10 +3481,6 @@ function ElectricityLineChart({
             当前预测
           </span>
         ) : null}
-      </div>
-      <div className="electricity-chart-labels">
-        <span>{points[0]?.label}</span>
-        <span>{points[points.length - 1]?.label}</span>
       </div>
     </div>
   );
@@ -3595,14 +3743,19 @@ function buildElectricityChartPoints(
   readings: ElectricityReading[],
   summary: ElectricitySummary | null,
   now: Date,
-) {
+  rangeDays: number,
+): ElectricityChartPoint[] {
+  const cutoffMs = now.getTime() - rangeDays * 24 * 60 * 60 * 1000;
   const actualPoints = readings
     .slice()
     .sort((left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime())
+    .filter((reading) => new Date(reading.recordedAt).getTime() >= cutoffMs)
     .map((reading) => ({
       label: formatChartDate(reading.recordedAt),
       value: reading.remainingKwh,
       isEstimated: false,
+      readingId: reading.id,
+      timestampMs: new Date(reading.recordedAt).getTime(),
     }));
 
   const liveEstimatedCurrentKwh = getLiveEstimatedCurrentKwh(summary, now);
@@ -3623,6 +3776,8 @@ function buildElectricityChartPoints(
       label: formatChartDate(now.toISOString()),
       value: liveEstimatedCurrentKwh,
       isEstimated: true,
+      readingId: null,
+      timestampMs: now.getTime(),
     },
   ];
 }
@@ -3634,6 +3789,20 @@ function formatChartDate(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatChartDateDateLine(timestampMs: number) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(timestampMs));
+}
+
+function formatChartDateTimeLine(timestampMs: number) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(timestampMs));
 }
 
 function roundToTwo(value: number) {
