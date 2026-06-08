@@ -35,12 +35,16 @@ export class ElectricityService {
     });
     const latest = readings[0] ?? null;
     const estimate = this.estimateUsage(readings.slice().reverse());
+    const now = new Date();
+    const estimatedCurrentKwh = latest
+      ? this.estimateCurrentRemainingKwh(latest.recordedAt, latest.remainingKwh, estimate.dailyUsageKwh, now)
+      : null;
 
     const daysUntilThreshold =
-      latest && estimate.dailyUsageKwh > 0
-        ? (latest.remainingKwh - alertThresholdKwh) / estimate.dailyUsageKwh
+      estimatedCurrentKwh !== null && estimate.dailyUsageKwh > 0
+        ? (estimatedCurrentKwh - alertThresholdKwh) / estimate.dailyUsageKwh
         : null;
-    const isBelowThreshold = latest ? latest.remainingKwh < alertThresholdKwh : false;
+    const isBelowThreshold = estimatedCurrentKwh !== null ? estimatedCurrentKwh < alertThresholdKwh : false;
     const shouldWarnSoon =
       daysUntilThreshold !== null && daysUntilThreshold >= 0 && daysUntilThreshold <= forecastWarningDays;
 
@@ -49,11 +53,14 @@ export class ElectricityService {
       alertThresholdKwh,
       electricityPriceYuanPerKwh,
       dailyUsageKwh: estimate.dailyUsageKwh,
+      dailyCostYuan: this.roundMoney(estimate.dailyUsageKwh * electricityPriceYuanPerKwh),
       validSegmentCount: estimate.validSegmentCount,
       ignoredSegmentCount: estimate.ignoredSegmentCount,
+      estimatedCurrentKwh,
+      estimatedCurrentAt: latest ? now : null,
       daysUntilThreshold,
       estimatedThresholdAt:
-        latest && daysUntilThreshold !== null && daysUntilThreshold >= 0
+        estimatedCurrentKwh !== null && daysUntilThreshold !== null && daysUntilThreshold >= 0
           ? new Date(Date.now() + daysUntilThreshold * 24 * 60 * 60 * 1000)
           : null,
       status: isBelowThreshold ? 'LOW' : shouldWarnSoon ? 'WARNING' : latest ? 'OK' : 'NO_DATA',
@@ -242,6 +249,29 @@ export class ElectricityService {
 
   private convertYuanToKwh(value: number) {
     return Math.round((value / electricityPriceYuanPerKwh) * 100) / 100;
+  }
+
+  private estimateCurrentRemainingKwh(
+    latestRecordedAt: Date,
+    latestRemainingKwh: number,
+    dailyUsageKwh: number,
+    now: Date,
+  ) {
+    if (dailyUsageKwh <= 0 || latestRecordedAt.getTime() >= now.getTime()) {
+      return latestRemainingKwh;
+    }
+
+    const elapsedDays = (now.getTime() - latestRecordedAt.getTime()) / (24 * 60 * 60 * 1000);
+
+    return Math.max(0, this.roundKwh(latestRemainingKwh - dailyUsageKwh * elapsedDays));
+  }
+
+  private roundKwh(value: number) {
+    return Math.round(value * 100) / 100;
+  }
+
+  private roundMoney(value: number) {
+    return Math.round(value * 100) / 100;
   }
 
   private async ensureOwnReading(userId: string, id: string) {
