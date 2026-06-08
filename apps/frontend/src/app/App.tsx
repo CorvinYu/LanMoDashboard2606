@@ -25,6 +25,10 @@ import {
   AuthUser,
   ElectricityReading,
   ElectricitySummary,
+  MediaRatingProvider,
+  MediaReview,
+  MediaReviewStatus,
+  MediaWorkType,
   RoutineHabit,
   RoutineIntervalUnit,
   SleepLog,
@@ -35,11 +39,13 @@ import {
   completeTask,
   createCountdownEvent,
   createElectricityReading,
+  createMediaReview,
   createRoutineHabit,
   createSleepLog,
   createTask,
   deleteCountdownEvent,
   deleteElectricityReading,
+  deleteMediaReview,
   deleteRoutineHabit,
   deleteTask,
   getElectricitySummary,
@@ -50,6 +56,7 @@ import {
   getStoredAuthToken,
   listCountdownEvents,
   listTodayCountdownEvents,
+  listMediaReviews,
   listRecentRoutineCheckIns,
   listRoutineHabits,
   listSleepLogs,
@@ -65,6 +72,7 @@ import {
   syncMicrosoftTodo,
   updateCountdownEvent,
   updateElectricityReading,
+  updateMediaReview,
   updateMe,
   updateRoutineHabit,
   updateTask,
@@ -75,6 +83,7 @@ type PageKey =
   | 'tasks'
   | 'routine'
   | 'electricity'
+  | 'reviews'
   | 'calendar'
   | 'reminders'
   | 'scores'
@@ -112,6 +121,12 @@ const navigationItems: Array<{
     icon: Zap,
   },
   {
+    key: 'reviews',
+    title: '作品评分',
+    description: '书籍、影视和游戏记录',
+    icon: Star,
+  },
+  {
     key: 'calendar',
     title: '日历',
     description: '事件和计划时间块',
@@ -127,7 +142,7 @@ const navigationItems: Array<{
     key: 'scores',
     title: '每日评分',
     description: '状态记录和趋势',
-    icon: Star,
+    icon: Activity,
   },
   {
     key: 'ai',
@@ -141,6 +156,30 @@ const priorityLabels: Record<TaskPriority, string> = {
   LOW: '低',
   MEDIUM: '中',
   HIGH: '高',
+};
+
+const mediaWorkTypeLabels: Record<MediaWorkType, string> = {
+  BOOK: '书籍',
+  MOVIE: '电影',
+  SERIES: '剧集',
+  ANIME: '动漫',
+  GAME: '游戏',
+  OTHER: '其他',
+};
+
+const mediaReviewStatusLabels: Record<MediaReviewStatus, string> = {
+  PLANNED: '想看/想读',
+  IN_PROGRESS: '进行中',
+  COMPLETED: '已完成',
+  DROPPED: '放弃',
+};
+
+const mediaRatingProviderLabels: Record<MediaRatingProvider, string> = {
+  DOUBAN: '豆瓣',
+  ROTTEN_TOMATOES: '烂番茄',
+  IMDB: 'IMDb',
+  METACRITIC: 'Metacritic',
+  OTHER: '其他',
 };
 
 const countdownRefreshMs = 30 * 60 * 1000;
@@ -164,6 +203,16 @@ type TodayBoardTaskItem =
     };
 
 const todayBoardRefreshMs = 60 * 1000;
+
+type MediaExternalRatingDraft = {
+  id: string;
+  provider: MediaRatingProvider;
+  ratingValue: string;
+  ratingScale: string;
+  ratingCount: string;
+  sourceUrl: string;
+  fetchedAt: string;
+};
 
 export function App() {
   const [activePage, setActivePage] = useState<PageKey>('today');
@@ -325,6 +374,7 @@ export function App() {
         {activePage === 'tasks' ? <TaskDashboardPage onTaskScoreChange={handleTaskScoreChange} /> : null}
         {activePage === 'routine' ? <RoutinePage /> : null}
         {activePage === 'electricity' ? <ElectricityPage /> : null}
+        {activePage === 'reviews' ? <MediaReviewsPage /> : null}
         {activePage === 'calendar' ? <PlaceholderPage title="日历" /> : null}
         {activePage === 'reminders' ? <PlaceholderPage title="提醒" /> : null}
         {activePage === 'scores' ? <PlaceholderPage title="每日评分" /> : null}
@@ -636,6 +686,482 @@ function TodayDashboardPage({
             </div>
           )}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function MediaReviewsPage() {
+  const [reviews, setReviews] = useState<MediaReview[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [title, setTitle] = useState('');
+  const [originalTitle, setOriginalTitle] = useState('');
+  const [workType, setWorkType] = useState<MediaWorkType>('BOOK');
+  const [releaseDate, setReleaseDate] = useState('');
+  const [creator, setCreator] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+  const [description, setDescription] = useState('');
+  const [language, setLanguage] = useState('');
+  const [country, setCountry] = useState('');
+  const [status, setStatus] = useState<MediaReviewStatus>('COMPLETED');
+  const [personalScore, setPersonalScore] = useState('80');
+  const [completedAt, setCompletedAt] = useState('');
+  const [reviewedAt, setReviewedAt] = useState(() => getDefaultDateTimeLocalValue());
+  const [note, setNote] = useState('');
+  const [externalRatings, setExternalRatings] = useState(() => [createEmptyExternalRatingDraft()]);
+
+  useEffect(() => {
+    refreshReviews();
+  }, []);
+
+  async function refreshReviews() {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      setReviews(await listMediaReviews());
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : '作品评分加载失败');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function resetForm() {
+    setEditingReviewId(null);
+    setTitle('');
+    setOriginalTitle('');
+    setWorkType('BOOK');
+    setReleaseDate('');
+    setCreator('');
+    setCoverUrl('');
+    setDescription('');
+    setLanguage('');
+    setCountry('');
+    setStatus('COMPLETED');
+    setPersonalScore('80');
+    setCompletedAt('');
+    setReviewedAt(getDefaultDateTimeLocalValue());
+    setNote('');
+    setExternalRatings([createEmptyExternalRatingDraft()]);
+  }
+
+  async function handleSubmitMediaReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!title.trim()) {
+      setError('请输入作品标题');
+      return;
+    }
+
+    setIsSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const input = {
+        title,
+        originalTitle,
+        workType,
+        releaseDate: releaseDate ? toDateOnlyIso(releaseDate) : null,
+        creator,
+        coverUrl,
+        description,
+        language,
+        country,
+        status,
+        personalScore: Number(personalScore),
+        completedAt: completedAt ? toDateOnlyIso(completedAt) : null,
+        reviewedAt: new Date(reviewedAt).toISOString(),
+        note,
+        externalRatings: externalRatings
+          .filter((rating) => rating.ratingValue.trim())
+          .map((rating) => ({
+            provider: rating.provider,
+            ratingValue: Number(rating.ratingValue),
+            ratingScale: Number(rating.ratingScale || '10'),
+            ratingCount: rating.ratingCount.trim() ? Number(rating.ratingCount) : null,
+            sourceUrl: rating.sourceUrl,
+            fetchedAt: rating.fetchedAt ? toDateOnlyIso(rating.fetchedAt) : null,
+          })),
+      };
+
+      if (editingReviewId) {
+        await updateMediaReview(editingReviewId, input);
+        setMessage('作品评分已更新。');
+      } else {
+        await createMediaReview(input);
+        setMessage('作品评分已创建。');
+      }
+
+      resetForm();
+      await refreshReviews();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : '作品评分保存失败');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleStartReviewEdit(review: MediaReview) {
+    setEditingReviewId(review.id);
+    setTitle(review.work.title);
+    setOriginalTitle(review.work.originalTitle ?? '');
+    setWorkType(review.work.workType);
+    setReleaseDate(review.work.releaseDate ? toDateInputValue(review.work.releaseDate) : '');
+    setCreator(review.work.creator ?? '');
+    setCoverUrl(review.work.coverUrl ?? '');
+    setDescription(review.work.description ?? '');
+    setLanguage(review.work.language ?? '');
+    setCountry(review.work.country ?? '');
+    setStatus(review.status);
+    setPersonalScore(String(review.personalScore));
+    setCompletedAt(review.completedAt ? toDateInputValue(review.completedAt) : '');
+    setReviewedAt(toDateTimeLocalValue(review.reviewedAt));
+    setNote(review.note ?? '');
+    setExternalRatings(
+      review.work.externalRatings.length
+        ? review.work.externalRatings.map((rating) => ({
+            id: rating.id,
+            provider: rating.provider,
+            ratingValue: String(rating.ratingValue),
+            ratingScale: String(rating.ratingScale),
+            ratingCount: rating.ratingCount === null ? '' : String(rating.ratingCount),
+            sourceUrl: rating.sourceUrl ?? '',
+            fetchedAt: rating.fetchedAt ? toDateInputValue(rating.fetchedAt) : '',
+          }))
+        : [createEmptyExternalRatingDraft()],
+    );
+    setError('');
+    setMessage('');
+  }
+
+  async function handleDeleteReview(id: string) {
+    setError('');
+    setMessage('');
+
+    try {
+      await deleteMediaReview(id);
+      if (editingReviewId === id) {
+        resetForm();
+      }
+      setMessage('作品评分已删除。');
+      await refreshReviews();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : '作品评分删除失败');
+    }
+  }
+
+  function updateExternalRatingDraft(
+    id: string,
+    field: 'provider' | 'ratingValue' | 'ratingScale' | 'ratingCount' | 'sourceUrl' | 'fetchedAt',
+    value: string,
+  ) {
+    setExternalRatings((current) =>
+      current.map((rating) => (rating.id === id ? { ...rating, [field]: value } : rating)),
+    );
+  }
+
+  function handleAddExternalRating() {
+    setExternalRatings((current) => [...current, createEmptyExternalRatingDraft()]);
+  }
+
+  function handleRemoveExternalRating(id: string) {
+    setExternalRatings((current) =>
+      current.length === 1 ? [createEmptyExternalRatingDraft()] : current.filter((rating) => rating.id !== id),
+    );
+  }
+
+  return (
+    <section className="media-page">
+      <div className="task-panel media-form-panel">
+        <div className="section-heading">
+          <div>
+            <h2>{editingReviewId ? '编辑作品评分' : '新增作品评分'}</h2>
+          </div>
+        </div>
+
+        <form className="task-form" onSubmit={handleSubmitMediaReview}>
+          <label>
+            <span>作品标题</span>
+            <input onChange={(event) => setTitle(event.target.value)} required value={title} />
+          </label>
+
+          <label>
+            <span>原始标题</span>
+            <input onChange={(event) => setOriginalTitle(event.target.value)} value={originalTitle} />
+          </label>
+
+          <div className="form-row">
+            <label>
+              <span>作品类型</span>
+              <select value={workType} onChange={(event) => setWorkType(event.target.value as MediaWorkType)}>
+                {Object.entries(mediaWorkTypeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>个人评分</span>
+              <input
+                inputMode="numeric"
+                max="100"
+                min="0"
+                onChange={(event) => setPersonalScore(event.target.value)}
+                type="number"
+                value={personalScore}
+              />
+            </label>
+          </div>
+
+          <div className="form-row">
+            <label>
+              <span>状态</span>
+              <select value={status} onChange={(event) => setStatus(event.target.value as MediaReviewStatus)}>
+                {Object.entries(mediaReviewStatusLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>发布日期</span>
+              <input onChange={(event) => setReleaseDate(event.target.value)} type="date" value={releaseDate} />
+            </label>
+          </div>
+
+          <div className="form-row">
+            <label>
+              <span>完成时间</span>
+              <input onChange={(event) => setCompletedAt(event.target.value)} type="date" value={completedAt} />
+            </label>
+
+            <label>
+              <span>评分时间</span>
+              <input
+                onChange={(event) => setReviewedAt(event.target.value)}
+                required
+                type="datetime-local"
+                value={reviewedAt}
+              />
+            </label>
+          </div>
+
+          <label>
+            <span>作者 / 主创</span>
+            <input onChange={(event) => setCreator(event.target.value)} value={creator} />
+          </label>
+
+          <label>
+            <span>封面链接</span>
+            <input onChange={(event) => setCoverUrl(event.target.value)} value={coverUrl} />
+          </label>
+
+          <div className="form-row">
+            <label>
+              <span>语言</span>
+              <input onChange={(event) => setLanguage(event.target.value)} value={language} />
+            </label>
+
+            <label>
+              <span>国家 / 地区</span>
+              <input onChange={(event) => setCountry(event.target.value)} value={country} />
+            </label>
+          </div>
+
+          <label>
+            <span>作品简介</span>
+            <textarea onChange={(event) => setDescription(event.target.value)} rows={3} value={description} />
+          </label>
+
+          <label>
+            <span>短评备注</span>
+            <textarea onChange={(event) => setNote(event.target.value)} rows={4} value={note} />
+          </label>
+
+          <div className="media-external-section">
+            <div className="section-heading">
+              <div>
+                <h2>外部评分</h2>
+              </div>
+              <button className="heading-button" onClick={handleAddExternalRating} type="button">
+                <Plus size={16} />
+                <span>添加来源</span>
+              </button>
+            </div>
+
+            <div className="media-external-list">
+              {externalRatings.map((rating) => (
+                <div className="media-external-item" key={rating.id}>
+                  <div className="form-row">
+                    <label>
+                      <span>来源</span>
+                      <select
+                        value={rating.provider}
+                        onChange={(event) =>
+                          updateExternalRatingDraft(rating.id, 'provider', event.target.value)
+                        }
+                      >
+                        {Object.entries(mediaRatingProviderLabels).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label>
+                      <span>评分值</span>
+                      <input
+                        inputMode="decimal"
+                        onChange={(event) =>
+                          updateExternalRatingDraft(rating.id, 'ratingValue', event.target.value)
+                        }
+                        placeholder="例如 8.7"
+                        type="number"
+                        value={rating.ratingValue}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="form-row">
+                    <label>
+                      <span>分制</span>
+                      <input
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          updateExternalRatingDraft(rating.id, 'ratingScale', event.target.value)
+                        }
+                        type="number"
+                        value={rating.ratingScale}
+                      />
+                    </label>
+
+                    <label>
+                      <span>评分人数</span>
+                      <input
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          updateExternalRatingDraft(rating.id, 'ratingCount', event.target.value)
+                        }
+                        type="number"
+                        value={rating.ratingCount}
+                      />
+                    </label>
+                  </div>
+
+                  <label>
+                    <span>来源链接</span>
+                    <input
+                      onChange={(event) => updateExternalRatingDraft(rating.id, 'sourceUrl', event.target.value)}
+                      value={rating.sourceUrl}
+                    />
+                  </label>
+
+                  <div className="media-external-actions">
+                    <label>
+                      <span>抓取日期</span>
+                      <input
+                        onChange={(event) => updateExternalRatingDraft(rating.id, 'fetchedAt', event.target.value)}
+                        type="date"
+                        value={rating.fetchedAt}
+                      />
+                    </label>
+                    <button className="icon-button" onClick={() => handleRemoveExternalRating(rating.id)} type="button">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="edit-actions">
+            <button disabled={isSaving} type="submit">
+              <Save size={16} />
+              <span>{isSaving ? '保存中' : editingReviewId ? '保存修改' : '创建记录'}</span>
+            </button>
+            {editingReviewId ? (
+              <button onClick={resetForm} type="button">
+                <X size={16} />
+                <span>取消编辑</span>
+              </button>
+            ) : null}
+          </div>
+        </form>
+
+        {message ? <p className="success-text">{message}</p> : null}
+        {error ? <p className="error-text">{error}</p> : null}
+      </div>
+
+      <div className="task-panel media-list-panel">
+        <div className="section-heading">
+          <div>
+            <h2>作品评分记录</h2>
+          </div>
+          <div className="heading-actions">
+            <span className="counter">{reviews.length} 条记录</span>
+            <button className="heading-button" onClick={refreshReviews} type="button">
+              <RefreshCw size={16} />
+              <span>刷新</span>
+            </button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <p className="muted">正在加载作品评分</p>
+        ) : reviews.length === 0 ? (
+          <p className="muted">还没有作品评分记录。</p>
+        ) : (
+          <div className="media-review-list">
+            {reviews.map((review) => (
+              <article className="media-review-item" key={review.id}>
+                <div className="media-review-main">
+                  <div className="task-title-row">
+                    <h3>{review.work.title}</h3>
+                    <span className="priority priority-medium">{review.personalScore} 分</span>
+                  </div>
+                  <div className="task-meta">
+                    <span>{mediaWorkTypeLabels[review.work.workType]}</span>
+                    <span>{mediaReviewStatusLabels[review.status]}</span>
+                    <span>评分：{formatDate(review.reviewedAt)}</span>
+                    {review.completedAt ? <span>完成：{formatDateOnly(review.completedAt)}</span> : null}
+                  </div>
+                  {review.work.originalTitle ? <p>原名：{review.work.originalTitle}</p> : null}
+                  {review.work.creator ? <p>作者 / 主创：{review.work.creator}</p> : null}
+                  {review.note ? <p>{review.note}</p> : null}
+                  {review.work.externalRatings.length ? (
+                    <div className="media-rating-chips">
+                      {review.work.externalRatings.map((rating) => (
+                        <span className="media-rating-chip" key={rating.id}>
+                          {mediaRatingProviderLabels[rating.provider]} {rating.ratingValue}/{rating.ratingScale}
+                          {rating.ratingCount !== null ? ` · ${rating.ratingCount} 人` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="task-actions">
+                  <button aria-label="编辑作品评分" onClick={() => handleStartReviewEdit(review)} type="button">
+                    <Edit3 size={18} />
+                  </button>
+                  <button aria-label="删除作品评分" onClick={() => handleDeleteReview(review.id)} type="button">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -2736,6 +3262,24 @@ function getRoutineStateLabel(habit: RoutineHabit) {
   return '正常';
 }
 
+function createEmptyExternalRatingDraft(): MediaExternalRatingDraft {
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    provider: 'DOUBAN',
+    ratingValue: '',
+    ratingScale: '10',
+    ratingCount: '',
+    sourceUrl: '',
+    fetchedAt: '',
+  };
+}
+
+function getDefaultDateTimeLocalValue() {
+  return new Date(Date.now() - new Date().getTimezoneOffset() * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
+}
+
 function isTaskVisibleInTodayBoard(task: Task, now: Date) {
   if (task.status === 'DONE' || task.status === 'ARCHIVED') {
     return false;
@@ -2860,6 +3404,14 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatDateOnly(value: string) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(value));
+}
+
 function formatKwh(value: number) {
   return `${Number(value.toFixed(2))} 度`;
 }
@@ -2921,6 +3473,14 @@ function toDateTimeLocalValue(value: string) {
   const offsetMs = date.getTimezoneOffset() * 60 * 1000;
 
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function toDateInputValue(value: string) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function toDateOnlyIso(value: string) {
+  return new Date(`${value}T12:00:00`).toISOString();
 }
 
 function sortCountdownEvents(events: CountdownEvent[]) {
