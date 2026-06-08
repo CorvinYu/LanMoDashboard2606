@@ -397,6 +397,108 @@ h1 {
   margin-bottom: 22px;
 }
 
+.today-board {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.05fr) minmax(260px, 0.82fr) minmax(340px, 1.15fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.today-column {
+  min-width: 0;
+}
+
+.today-column-secondary {
+  display: grid;
+  gap: 18px;
+}
+
+.today-panel {
+  min-height: 220px;
+}
+
+.today-next-schedule {
+  display: grid;
+  gap: 10px;
+}
+
+.today-next-schedule .eyebrow {
+  margin-bottom: 0;
+}
+
+.today-next-schedule h3,
+.today-countdown-item h3,
+.today-timeline-content h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  overflow-wrap: anywhere;
+}
+
+.today-next-schedule p,
+.today-timeline-content p {
+  margin-bottom: 0;
+  color: #5d6971;
+  line-height: 1.45;
+}
+
+.today-next-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #6a747b;
+  font-size: 0.84rem;
+}
+
+.today-countdown-list {
+  display: grid;
+  gap: 10px;
+}
+
+.today-countdown-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e0e5df;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.today-timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.today-timeline-item {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e0e5df;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.today-timeline-time {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  color: #354148;
+}
+
+.today-timeline-time strong {
+  font-size: 1rem;
+}
+
+.today-timeline-time span {
+  color: #6a747b;
+  font-size: 0.82rem;
+}
+
+.today-timeline-content {
+  display: grid;
+  gap: 8px;
+}
+
 .task-panel {
   padding: 18px;
   border: 1px solid #dde1dc;
@@ -1168,6 +1270,10 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .today-board {
+    grid-template-columns: 1fr;
+  }
+
   .task-create-panel,
   .integration-panel,
   .countdown-panel,
@@ -1187,6 +1293,18 @@ textarea {
 
   .countdown-list-panel {
     order: 2;
+  }
+
+  .today-column-primary {
+    order: 1;
+  }
+
+  .today-column-secondary {
+    order: 2;
+  }
+
+  .today-column-tertiary {
+    order: 3;
   }
 
   .task-create-panel {
@@ -1314,6 +1432,10 @@ textarea {
 
   .task-actions {
     justify-content: flex-end;
+  }
+
+  .today-timeline-item {
+    grid-template-columns: 1fr;
   }
 
   .countdown-item {

@@ -16,6 +16,22 @@ export type UpdateCalendarEventBody = Partial<CreateCalendarEventBody>;
 export class CalendarService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async listToday(userId: string) {
+    const { todayStart, tomorrowStart } = this.getTodayRange();
+    const events = await this.prisma.calendarEvent.findMany({
+      where: {
+        userId,
+        startsAt: {
+          gte: todayStart,
+          lt: tomorrowStart,
+        },
+      },
+      orderBy: [{ startsAt: 'asc' }, { createdAt: 'desc' }],
+    });
+
+    return this.sortEvents(events);
+  }
+
   async list(userId: string) {
     const events = await this.prisma.calendarEvent.findMany({
       where: {
@@ -94,6 +110,17 @@ export class CalendarService {
     }
 
     return 1;
+  }
+
+  private getTodayRange() {
+    const todayStart = new Date();
+
+    todayStart.setHours(0, 0, 0, 0);
+
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    return { todayStart, tomorrowStart };
   }
 
   private async ensureOwnEvent(id: string, userId: string) {

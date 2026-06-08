@@ -322,6 +322,10 @@ export function listCountdownEvents() {
   return request<CountdownEvent[]>('/calendar-events');
 }
 
+export function listTodayCountdownEvents() {
+  return request<CountdownEvent[]>('/calendar-events/today');
+}
+
 export function createCountdownEvent(input: CreateCountdownEventInput) {
   return request<CountdownEvent>('/calendar-events', {
     method: 'POST',
