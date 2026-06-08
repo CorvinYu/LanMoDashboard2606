@@ -13,6 +13,11 @@ import {
 export class CalendarController {
   constructor(private readonly calendar: CalendarService) {}
 
+  @Get('today')
+  listToday(@CurrentUser() user: AuthenticatedUser) {
+    return this.calendar.listToday(user.id);
+  }
+
   @Get()
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.calendar.list(user.id);

@@ -49,6 +49,7 @@ import {
   listElectricityReadings,
   getStoredAuthToken,
   listCountdownEvents,
+  listTodayCountdownEvents,
   listRecentRoutineCheckIns,
   listRoutineHabits,
   listSleepLogs,
@@ -69,7 +70,16 @@ import {
   updateTask,
 } from '../api/client';
 
-type PageKey = 'tasks' | 'routine' | 'electricity' | 'calendar' | 'reminders' | 'scores' | 'ai' | 'account';
+type PageKey =
+  | 'today'
+  | 'tasks'
+  | 'routine'
+  | 'electricity'
+  | 'calendar'
+  | 'reminders'
+  | 'scores'
+  | 'ai'
+  | 'account';
 
 const navigationItems: Array<{
   key: PageKey;
@@ -77,6 +87,12 @@ const navigationItems: Array<{
   description: string;
   icon: typeof ListTodo;
 }> = [
+  {
+    key: 'today',
+    title: '今日看板',
+    description: '今日任务、倒数日和时间表',
+    icon: Clock,
+  },
   {
     key: 'tasks',
     title: '任务面板',
@@ -135,8 +151,22 @@ type CurrentTaskScore = {
   penalty: number;
 };
 
+type TodayBoardTaskItem =
+  | {
+      kind: 'task';
+      task: Task;
+      sortValue: number;
+    }
+  | {
+      kind: 'routine';
+      habit: RoutineHabit;
+      sortValue: number;
+    };
+
+const todayBoardRefreshMs = 60 * 1000;
+
 export function App() {
-  const [activePage, setActivePage] = useState<PageKey>('tasks');
+  const [activePage, setActivePage] = useState<PageKey>('today');
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => typeof window === 'undefined' || !window.matchMedia('(max-width: 1180px)').matches,
   );
@@ -271,7 +301,9 @@ export function App() {
             <p className="eyebrow">当前页面</p>
             <div className="page-title-row">
               <h2>{currentPage.title}</h2>
-              {activePage === 'tasks' ? <ScoreSummaryPanel score={currentTaskScore} /> : null}
+              {activePage === 'today' || activePage === 'tasks' ? (
+                <ScoreSummaryPanel score={currentTaskScore} />
+              ) : null}
             </div>
           </div>
           <div className="topbar-actions">
@@ -289,6 +321,7 @@ export function App() {
           </div>
         </section>
 
+        {activePage === 'today' ? <TodayDashboardPage onTaskScoreChange={handleTaskScoreChange} /> : null}
         {activePage === 'tasks' ? <TaskDashboardPage onTaskScoreChange={handleTaskScoreChange} /> : null}
         {activePage === 'routine' ? <RoutinePage /> : null}
         {activePage === 'electricity' ? <ElectricityPage /> : null}
@@ -301,6 +334,310 @@ export function App() {
         ) : null}
       </section>
     </main>
+  );
+}
+
+function TodayDashboardPage({
+  onTaskScoreChange,
+}: {
+  onTaskScoreChange: (score: CurrentTaskScore) => void;
+}) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [routineHabits, setRoutineHabits] = useState<RoutineHabit[]>([]);
+  const [todayEvents, setTodayEvents] = useState<CountdownEvent[]>([]);
+  const [countdownEvents, setCountdownEvents] = useState<CountdownEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    refreshTodayBoard();
+  }, []);
+
+  useEffect(() => {
+    onTaskScoreChange(calculateCurrentTaskScore(tasks, routineHabits, now));
+  }, [now, onTaskScoreChange, routineHabits, tasks]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, todayBoardRefreshMs);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const todayTaskItems = useMemo(() => {
+    const taskItems: TodayBoardTaskItem[] = tasks
+      .filter((task) => isTaskVisibleInTodayBoard(task, now))
+      .map((task) => ({
+        kind: 'task',
+        task,
+        sortValue: getTodayTaskSortValue(task, now),
+      }));
+
+    const routineItems: TodayBoardTaskItem[] = routineHabits
+      .filter((habit) => habit.isActive && (habit.state === 'overdue' || habit.state === 'due-soon'))
+      .map((habit) => ({
+        kind: 'routine',
+        habit,
+        sortValue: getTodayRoutineSortValue(habit, now),
+      }));
+
+    return [...taskItems, ...routineItems].sort((left, right) => left.sortValue - right.sortValue);
+  }, [now, routineHabits, tasks]);
+
+  const nextTodayEvent = useMemo(
+    () => todayEvents.find((event) => new Date(event.startsAt).getTime() >= now.getTime()) ?? null,
+    [now, todayEvents],
+  );
+  const nextSchedule = nextTodayEvent ?? countdownEvents[0] ?? null;
+  const highlightedCountdowns = useMemo(() => countdownEvents.slice(0, 5), [countdownEvents]);
+
+  async function refreshTodayBoard() {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const [loadedTasks, loadedRoutineHabits, loadedTodayEvents, loadedCountdownEvents] =
+        await Promise.all([
+          listTasks(),
+          listRoutineHabits(),
+          listTodayCountdownEvents(),
+          listCountdownEvents(),
+        ]);
+
+      setTasks(loadedTasks);
+      setRoutineHabits(loadedRoutineHabits);
+      setTodayEvents(loadedTodayEvents);
+      setCountdownEvents(loadedCountdownEvents);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : '今日看板加载失败');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleCompleteTodayTask(id: string) {
+    setActionError('');
+
+    try {
+      await completeTask(id);
+      await refreshTodayBoard();
+    } catch (requestError) {
+      setActionError(requestError instanceof Error ? requestError.message : '任务更新失败');
+    }
+  }
+
+  async function handleCheckInTodayHabit(id: string) {
+    setActionError('');
+
+    try {
+      await checkInRoutineHabit(id);
+      await refreshTodayBoard();
+    } catch (requestError) {
+      setActionError(requestError instanceof Error ? requestError.message : '检查事项打卡失败');
+    }
+  }
+
+  return (
+    <section className="today-board">
+      <div className="today-column today-column-primary">
+        <div className="task-panel today-panel">
+          <div className="section-heading">
+            <div>
+              <h2>今日任务列表</h2>
+            </div>
+            <div className="heading-actions">
+              <span className="counter">{todayTaskItems.length} 项</span>
+              <button className="heading-button" onClick={refreshTodayBoard} type="button">
+                <RefreshCw size={16} />
+                <span>刷新</span>
+              </button>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <p className="muted">正在加载今日任务</p>
+          ) : todayTaskItems.length === 0 ? (
+            <p className="muted">今天没有需要处理的任务。</p>
+          ) : (
+            <div className="task-list">
+              {todayTaskItems.map((item) =>
+                item.kind === 'routine' ? (
+                  <article
+                    className={`task-item routine-task-item routine-${item.habit.state}`}
+                    key={`today-routine-${item.habit.id}`}
+                  >
+                    <div className="task-content">
+                      <div className="task-title-row">
+                        <h3>{item.habit.title}</h3>
+                        <span className="priority priority-low">检查</span>
+                      </div>
+                      {item.habit.description ? <p>{item.habit.description}</p> : null}
+                      <div className="task-meta">
+                        <span>{getRoutineStateLabel(item.habit)}</span>
+                        <span>预期：{formatDate(item.habit.nextDueAt)}</span>
+                        <span className={`countdown ${getCountdownState(item.habit.nextDueAt, now)}`}>
+                          {formatCountdown(item.habit.nextDueAt, now)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="task-actions">
+                      <button
+                        aria-label="检查事项打卡"
+                        onClick={() => handleCheckInTodayHabit(item.habit.id)}
+                        type="button"
+                      >
+                        <Check size={18} />
+                      </button>
+                    </div>
+                  </article>
+                ) : (
+                  <article className="task-item" key={`today-task-${item.task.id}`}>
+                    <div className="task-content">
+                      <div className="task-title-row">
+                        <h3>{item.task.title}</h3>
+                        <span className={`priority priority-${item.task.priority.toLowerCase()}`}>
+                          {priorityLabels[item.task.priority]}
+                        </span>
+                      </div>
+                      {item.task.description ? <p>{item.task.description}</p> : null}
+                      <div className="task-meta">
+                        <span>{getTodayTaskLabel(item.task, now)}</span>
+                        {item.task.dueAt ? <span>截止：{formatDate(item.task.dueAt)}</span> : null}
+                        {item.task.dueAt ? (
+                          <span className={`countdown ${getCountdownState(item.task.dueAt, now)}`}>
+                            {formatCountdown(item.task.dueAt, now)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="task-actions">
+                      <button
+                        aria-label="完成今日任务"
+                        onClick={() => handleCompleteTodayTask(item.task.id)}
+                        type="button"
+                      >
+                        <Check size={18} />
+                      </button>
+                    </div>
+                  </article>
+                ),
+              )}
+            </div>
+          )}
+
+          {error ? <p className="error-text">{error}</p> : null}
+          {actionError ? <p className="error-text">{actionError}</p> : null}
+        </div>
+      </div>
+
+      <div className="today-column today-column-secondary">
+        <div className="task-panel today-panel">
+          <div className="section-heading">
+            <div>
+              <h2>下一项日程</h2>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <p className="muted">正在计算下一项日程</p>
+          ) : !nextSchedule ? (
+            <p className="muted">还没有接下来的日程。</p>
+          ) : (
+            <div className="today-next-schedule">
+              <p className="eyebrow">{isSameDay(nextSchedule.startsAt, now) ? '今天' : '最近事件'}</p>
+              <h3>{nextSchedule.title}</h3>
+              {nextSchedule.description ? <p>{nextSchedule.description}</p> : null}
+              <div className="today-next-meta">
+                <span>{formatDate(nextSchedule.startsAt)}</span>
+                <span className={`countdown ${getCountdownState(nextSchedule.startsAt, now)}`}>
+                  {formatCountdown(nextSchedule.startsAt, now)}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="task-panel today-panel">
+          <div className="section-heading">
+            <div>
+              <h2>倒数日</h2>
+            </div>
+            <span className="counter">{highlightedCountdowns.length} 条</span>
+          </div>
+
+          {isLoading ? (
+            <p className="muted">正在加载倒数日</p>
+          ) : highlightedCountdowns.length === 0 ? (
+            <p className="muted">还没有未来事件。</p>
+          ) : (
+            <div className="today-countdown-list">
+              {highlightedCountdowns.map((event) => (
+                <article className="today-countdown-item" key={`today-countdown-${event.id}`}>
+                  <div className="task-title-row">
+                    <h3>{event.title}</h3>
+                    <span className={`priority priority-${event.priority.toLowerCase()}`}>
+                      {priorityLabels[event.priority]}
+                    </span>
+                  </div>
+                  <div className="task-meta">
+                    <span>{formatDate(event.startsAt)}</span>
+                    <span className={`countdown ${getCountdownState(event.startsAt, now)}`}>
+                      {formatCountdown(event.startsAt, now)}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="today-column today-column-tertiary">
+        <div className="task-panel today-panel">
+          <div className="section-heading">
+            <div>
+              <h2>今日时间表</h2>
+            </div>
+            <span className="counter">{todayEvents.length} 项</span>
+          </div>
+
+          {isLoading ? (
+            <p className="muted">正在加载今日时间表</p>
+          ) : todayEvents.length === 0 ? (
+            <p className="muted">今天还没有安排事件。</p>
+          ) : (
+            <div className="today-timeline">
+              {todayEvents.map((event) => (
+                <article className="today-timeline-item" key={`today-timeline-${event.id}`}>
+                  <div className="today-timeline-time">
+                    <strong>{formatTime(event.startsAt)}</strong>
+                    <span>{getTodayTimelineStatus(event.startsAt, now)}</span>
+                  </div>
+                  <div className="today-timeline-content">
+                    <div className="task-title-row">
+                      <h3>{event.title}</h3>
+                      <span className={`priority priority-${event.priority.toLowerCase()}`}>
+                        {priorityLabels[event.priority]}
+                      </span>
+                    </div>
+                    {event.description ? <p>{event.description}</p> : null}
+                    <div className="task-meta">
+                      <span>{formatDate(event.startsAt)}</span>
+                      <span className={`countdown ${getCountdownState(event.startsAt, now)}`}>
+                        {formatCountdown(event.startsAt, now)}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -2397,6 +2734,112 @@ function getRoutineStateLabel(habit: RoutineHabit) {
   }
 
   return '正常';
+}
+
+function isTaskVisibleInTodayBoard(task: Task, now: Date) {
+  if (task.status === 'DONE' || task.status === 'ARCHIVED') {
+    return false;
+  }
+
+  if (task.status === 'DOING') {
+    return true;
+  }
+
+  if (!task.dueAt) {
+    return false;
+  }
+
+  return new Date(task.dueAt).getTime() <= getTomorrowStart(now).getTime();
+}
+
+function getTodayTaskSortValue(task: Task, now: Date) {
+  if (task.status === 'DOING') {
+    return -180_000 - getPriorityWeight(task.priority) * 100;
+  }
+
+  if (!task.dueAt) {
+    return 300_000 - getPriorityWeight(task.priority) * 100;
+  }
+
+  const diffMs = new Date(task.dueAt).getTime() - now.getTime();
+
+  if (diffMs < 0) {
+    return -220_000 + diffMs / 3_600_000 - getPriorityWeight(task.priority) * 100;
+  }
+
+  return diffMs / 60_000 - getPriorityWeight(task.priority) * 100;
+}
+
+function getTodayRoutineSortValue(habit: RoutineHabit, now: Date) {
+  const diffMs = new Date(habit.nextDueAt).getTime() - now.getTime();
+
+  if (habit.state === 'overdue') {
+    return -240_000 + diffMs / 3_600_000;
+  }
+
+  return diffMs / 60_000 + 5_000;
+}
+
+function getTodayTaskLabel(task: Task, now: Date) {
+  if (task.status === 'DOING') {
+    return '正在做';
+  }
+
+  if (!task.dueAt) {
+    return '今日关注';
+  }
+
+  const dueAt = new Date(task.dueAt);
+
+  if (dueAt.getTime() < now.getTime()) {
+    return '已逾期';
+  }
+
+  if (isSameDay(task.dueAt, now)) {
+    return '今日截止';
+  }
+
+  return '即将截止';
+}
+
+function getTodayTimelineStatus(value: string, now: Date) {
+  const diffMs = new Date(value).getTime() - now.getTime();
+
+  if (diffMs < 0) {
+    return '已过';
+  }
+
+  if (diffMs <= 60 * 60 * 1000) {
+    return '即将开始';
+  }
+
+  return '待开始';
+}
+
+function isSameDay(value: string, baseDate: Date) {
+  const date = new Date(value);
+
+  return (
+    date.getFullYear() === baseDate.getFullYear() &&
+    date.getMonth() === baseDate.getMonth() &&
+    date.getDate() === baseDate.getDate()
+  );
+}
+
+function getTomorrowStart(baseDate: Date) {
+  const start = new Date(baseDate);
+
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() + 1);
+
+  return start;
+}
+
+function formatTime(value: string) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
 
 function formatSleepDuration(log: SleepLog) {
