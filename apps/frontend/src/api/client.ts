@@ -179,6 +179,79 @@ export type ElectricitySummary = {
   status: 'NO_DATA' | 'OK' | 'WARNING' | 'LOW';
 };
 
+export type MediaWorkType = 'BOOK' | 'MOVIE' | 'SERIES' | 'ANIME' | 'GAME' | 'OTHER';
+export type MediaReviewStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'DROPPED';
+export type MediaRatingProvider = 'DOUBAN' | 'ROTTEN_TOMATOES' | 'IMDB' | 'METACRITIC' | 'OTHER';
+
+export type MediaExternalRating = {
+  id: string;
+  provider: MediaRatingProvider;
+  ratingValue: number;
+  ratingScale: number;
+  ratingCount: number | null;
+  sourceUrl: string | null;
+  fetchedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MediaWork = {
+  id: string;
+  title: string;
+  originalTitle: string | null;
+  workType: MediaWorkType;
+  releaseDate: string | null;
+  creator: string | null;
+  coverUrl: string | null;
+  description: string | null;
+  language: string | null;
+  country: string | null;
+  createdAt: string;
+  updatedAt: string;
+  externalRatings: MediaExternalRating[];
+};
+
+export type MediaReview = {
+  id: string;
+  status: MediaReviewStatus;
+  personalScore: number;
+  completedAt: string | null;
+  reviewedAt: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  work: MediaWork;
+};
+
+export type MediaExternalRatingInput = {
+  provider: MediaRatingProvider;
+  ratingValue: number;
+  ratingScale?: number;
+  ratingCount?: number | null;
+  sourceUrl?: string;
+  fetchedAt?: string | null;
+};
+
+export type CreateMediaReviewInput = {
+  title: string;
+  originalTitle?: string;
+  workType: MediaWorkType;
+  releaseDate?: string | null;
+  creator?: string;
+  coverUrl?: string;
+  description?: string;
+  language?: string;
+  country?: string;
+  status?: MediaReviewStatus;
+  personalScore: number;
+  completedAt?: string | null;
+  reviewedAt: string;
+  note?: string;
+  externalRatings?: MediaExternalRatingInput[];
+};
+
+export type UpdateMediaReviewInput = Partial<CreateMediaReviewInput>;
+
 export type CreateElectricityReadingInput = {
   recordedAt: string;
   remainingKwh: number;
@@ -461,6 +534,30 @@ export function updateElectricityReading(id: string, input: UpdateElectricityRea
 
 export function deleteElectricityReading(id: string) {
   return request<ElectricityReading>(`/electricity/readings/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export function listMediaReviews() {
+  return request<MediaReview[]>('/media-reviews');
+}
+
+export function createMediaReview(input: CreateMediaReviewInput) {
+  return request<MediaReview>('/media-reviews', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateMediaReview(id: string, input: UpdateMediaReviewInput) {
+  return request<MediaReview>(`/media-reviews/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteMediaReview(id: string) {
+  return request<MediaWork>(`/media-reviews/${id}`, {
     method: 'DELETE',
   });
 }

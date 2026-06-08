@@ -1155,6 +1155,81 @@ textarea {
   font-size: 0.86rem;
 }
 
+.media-page {
+  display: grid;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.media-list-panel {
+  min-height: 420px;
+}
+
+.media-review-list,
+.media-external-list {
+  display: grid;
+  gap: 10px;
+}
+
+.media-review-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e0e5df;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.media-review-main {
+  display: grid;
+  gap: 8px;
+}
+
+.media-review-main p {
+  margin-bottom: 0;
+  color: #5d6971;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.media-external-section {
+  display: grid;
+  gap: 12px;
+}
+
+.media-external-item {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e0e5df;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.media-external-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.media-rating-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.media-rating-chip {
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: #edf3ee;
+  color: #1f5c44;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .placeholder-page {
   max-width: 720px;
 }
@@ -1331,12 +1406,18 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .media-page {
+    grid-template-columns: 1fr;
+  }
+
   .routine-list-panel,
   .routine-history-panel,
   .sleep-panel,
   .electricity-summary-panel,
   .electricity-form-panel,
-  .electricity-history-panel {
+  .electricity-history-panel,
+  .media-form-panel,
+  .media-list-panel {
     grid-column: auto;
     grid-row: auto;
   }
@@ -1367,6 +1448,14 @@ textarea {
 
   .electricity-history-panel {
     order: 3;
+  }
+
+  .media-form-panel {
+    order: 1;
+  }
+
+  .media-list-panel {
+    order: 2;
   }
 
   .electricity-metrics {
@@ -1439,6 +1528,10 @@ textarea {
   }
 
   .countdown-item {
+    grid-template-columns: 1fr;
+  }
+
+  .media-review-item {
     grid-template-columns: 1fr;
   }
 

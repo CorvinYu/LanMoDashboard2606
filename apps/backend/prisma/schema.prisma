@@ -27,6 +27,8 @@ model User {
   routineCheckIns     RoutineCheckIn[]
   sleepLogs           SleepLog[]
   electricityReadings ElectricityReading[]
+  mediaWorks          MediaWork[]
+  mediaReviews        MediaReview[]
 
   @@map("users")
 }
@@ -277,6 +279,67 @@ model ElectricityReading {
   @@map("electricity_readings")
 }
 
+model MediaWork {
+  id            String        @id @default(uuid())
+  userId        String        @map("user_id")
+  title         String
+  originalTitle String?       @map("original_title")
+  workType      MediaWorkType @map("work_type")
+  releaseDate   DateTime?     @map("release_date") @db.Date
+  creator       String?
+  coverUrl      String?       @map("cover_url")
+  description   String?
+  language      String?
+  country       String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews         MediaReview[]
+  externalRatings MediaExternalRating[]
+
+  @@index([userId, workType, createdAt])
+  @@map("media_works")
+}
+
+model MediaReview {
+  id            String            @id @default(uuid())
+  userId        String            @map("user_id")
+  workId        String            @map("work_id")
+  status        MediaReviewStatus @default(COMPLETED)
+  personalScore Int               @map("personal_score")
+  completedAt   DateTime?         @map("completed_at") @db.Date
+  reviewedAt    DateTime          @map("reviewed_at")
+  note          String?
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  work MediaWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workId])
+  @@index([userId, reviewedAt])
+  @@map("media_reviews")
+}
+
+model MediaExternalRating {
+  id          String              @id @default(uuid())
+  workId      String              @map("work_id")
+  provider    MediaRatingProvider
+  ratingValue Float               @map("rating_value")
+  ratingScale Int                 @default(10) @map("rating_scale")
+  ratingCount Int?                @map("rating_count")
+  sourceUrl   String?             @map("source_url")
+  fetchedAt   DateTime?           @map("fetched_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  work MediaWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@index([workId, provider])
+  @@map("media_external_ratings")
+}
+
 enum TaskStatus {
   TODO
   DOING
@@ -350,4 +413,28 @@ enum RoutineCheckInStatus {
 enum SleepLogSource {
   MANUAL
   IMPORTED
+}
+
+enum MediaWorkType {
+  BOOK
+  MOVIE
+  SERIES
+  ANIME
+  GAME
+  OTHER
+}
+
+enum MediaReviewStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  DROPPED
+}
+
+enum MediaRatingProvider {
+  DOUBAN
+  ROTTEN_TOMATOES
+  IMDB
+  METACRITIC
+  OTHER
 }
