@@ -1042,7 +1042,7 @@ textarea {
 
 .electricity-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1153,6 +1153,83 @@ textarea {
   margin-bottom: 0;
   color: #6a747b;
   font-size: 0.86rem;
+}
+
+.electricity-chart-panel {
+  margin-top: 18px;
+}
+
+.electricity-chart {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid #e0e5df;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.electricity-chart svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.electricity-chart-axis {
+  stroke: #ccd5cf;
+  stroke-width: 1;
+}
+
+.electricity-chart-line {
+  stroke: #225a49;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.electricity-chart-point {
+  fill: #225a49;
+}
+
+.electricity-chart-point-estimated {
+  fill: #ffffff;
+  stroke: #a13d2d;
+  stroke-width: 2;
+}
+
+.electricity-chart-estimated-link {
+  stroke: #a13d2d;
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+
+.electricity-chart-legend,
+.electricity-chart-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #5d6971;
+  font-size: 0.82rem;
+}
+
+.electricity-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.electricity-chart-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #225a49;
+}
+
+.electricity-chart-dot-estimated {
+  background: #ffffff;
+  border: 2px solid #a13d2d;
 }
 
 .media-page {

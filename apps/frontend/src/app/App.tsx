@@ -2874,10 +2874,28 @@ function ElectricityPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 60 * 1000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     refreshElectricityPage();
   }, []);
+
+  const chartPoints = useMemo(
+    () => buildElectricityChartPoints(readings, summary, now),
+    [now, readings, summary],
+  );
+  const liveEstimatedCurrentKwh = useMemo(
+    () => getLiveEstimatedCurrentKwh(summary, now),
+    [now, summary],
+  );
 
   async function refreshElectricityPage() {
     setIsLoading(true);
@@ -3032,14 +3050,23 @@ function ElectricityPage() {
         ) : (
           <div className="electricity-metrics">
             <div className="electricity-metric electricity-metric-primary">
-              <span>当前剩余</span>
+              <span>最后一次实际剩余</span>
               <strong>{summary?.latest ? formatKwh(summary.latest.remainingKwh) : '--'}</strong>
               <small>{summary?.latest ? `记录于 ${formatDate(summary.latest.recordedAt)}` : '还没有读数'}</small>
             </div>
             <div className="electricity-metric">
+              <span>当前预测剩余</span>
+              <strong>{liveEstimatedCurrentKwh === null ? '--' : formatKwh(liveEstimatedCurrentKwh)}</strong>
+              <small>
+                {summary?.latest
+                  ? `按近期耗电速度估算至 ${formatDate(now.toISOString())}`
+                  : '需要至少一次读数'}
+              </small>
+            </div>
+            <div className="electricity-metric">
               <span>估算日耗电</span>
               <strong>{summary ? formatKwh(summary.dailyUsageKwh) : '--'}</strong>
-              <small>{summary ? `电价 ${summary.electricityPriceYuanPerKwh} 元/度` : '需要至少两次读数'}</small>
+              <small>{summary ? `约 ${formatMoney(summary.dailyCostYuan)} / 天` : '需要至少两次读数'}</small>
             </div>
             <div className="electricity-metric">
               <span>低于 15 度</span>
@@ -3048,6 +3075,18 @@ function ElectricityPage() {
             </div>
           </div>
         )}
+
+        {!isLoading && chartPoints.length > 0 ? (
+          <div className="electricity-chart-panel">
+            <div className="section-heading">
+              <div>
+                <h2>剩余电量曲线</h2>
+              </div>
+              <span className="counter">{chartPoints.length} 个点</span>
+            </div>
+            <ElectricityLineChart points={chartPoints} />
+          </div>
+        ) : null}
 
         {summary?.status === 'LOW' ? (
           <p className="electricity-alert">当前剩余电量低于 {summary.alertThresholdKwh} 度，建议尽快充值。</p>
@@ -3220,6 +3259,82 @@ function ElectricityPage() {
         )}
       </div>
     </section>
+  );
+}
+
+function ElectricityLineChart({
+  points,
+}: {
+  points: Array<{ label: string; value: number; isEstimated: boolean }>;
+}) {
+  const width = 720;
+  const height = 220;
+  const paddingX = 20;
+  const paddingY = 18;
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = Math.max(maxValue - minValue, 1);
+
+  const plotPoints = points.map((point, index) => {
+    const x =
+      points.length === 1
+        ? width / 2
+        : paddingX + (index / (points.length - 1)) * (width - paddingX * 2);
+    const y = paddingY + ((maxValue - point.value) / range) * (height - paddingY * 2);
+
+    return { ...point, x, y };
+  });
+
+  const polyline = plotPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const actualPoints = plotPoints.filter((point) => !point.isEstimated);
+  const estimatedPoint = plotPoints.find((point) => point.isEstimated) ?? null;
+
+  return (
+    <div className="electricity-chart">
+      <svg aria-label="剩余电量曲线图" viewBox={`0 0 ${width} ${height}`} role="img">
+        <line className="electricity-chart-axis" x1={paddingX} x2={paddingX} y1={paddingY} y2={height - paddingY} />
+        <line
+          className="electricity-chart-axis"
+          x1={paddingX}
+          x2={width - paddingX}
+          y1={height - paddingY}
+          y2={height - paddingY}
+        />
+        <polyline className="electricity-chart-line" fill="none" points={polyline} />
+        {actualPoints.map((point) => (
+          <circle className="electricity-chart-point" cx={point.x} cy={point.y} key={point.label} r="4" />
+        ))}
+        {estimatedPoint ? (
+          <>
+            <circle className="electricity-chart-point-estimated" cx={estimatedPoint.x} cy={estimatedPoint.y} r="5" />
+            <line
+              className="electricity-chart-estimated-link"
+              x1={plotPoints[plotPoints.length - 2]?.x ?? estimatedPoint.x}
+              x2={estimatedPoint.x}
+              y1={plotPoints[plotPoints.length - 2]?.y ?? estimatedPoint.y}
+              y2={estimatedPoint.y}
+            />
+          </>
+        ) : null}
+      </svg>
+      <div className="electricity-chart-legend">
+        <span>
+          <i className="electricity-chart-dot" />
+          实际录入
+        </span>
+        {estimatedPoint ? (
+          <span>
+            <i className="electricity-chart-dot electricity-chart-dot-estimated" />
+            当前预测
+          </span>
+        ) : null}
+      </div>
+      <div className="electricity-chart-labels">
+        <span>{points[0]?.label}</span>
+        <span>{points[points.length - 1]?.label}</span>
+      </div>
+    </div>
   );
 }
 
@@ -3416,6 +3531,10 @@ function formatKwh(value: number) {
   return `${Number(value.toFixed(2))} 度`;
 }
 
+function formatMoney(value: number) {
+  return `${Number(value.toFixed(2))} 元`;
+}
+
 function convertYuanToKwh(value: number) {
   return Math.round((value / 0.63) * 100) / 100;
 }
@@ -3450,6 +3569,75 @@ function formatThresholdEstimate(summary: ElectricitySummary | null) {
   }
 
   return `${Number(summary.daysUntilThreshold.toFixed(1))} 天`;
+}
+
+function getLiveEstimatedCurrentKwh(summary: ElectricitySummary | null, now: Date) {
+  if (!summary?.latest) {
+    return null;
+  }
+
+  if (summary.dailyUsageKwh <= 0) {
+    return summary.latest.remainingKwh;
+  }
+
+  const latestRecordedAt = new Date(summary.latest.recordedAt);
+
+  if (latestRecordedAt.getTime() >= now.getTime()) {
+    return summary.latest.remainingKwh;
+  }
+
+  const elapsedDays = (now.getTime() - latestRecordedAt.getTime()) / (24 * 60 * 60 * 1000);
+
+  return Math.max(0, roundToTwo(summary.latest.remainingKwh - summary.dailyUsageKwh * elapsedDays));
+}
+
+function buildElectricityChartPoints(
+  readings: ElectricityReading[],
+  summary: ElectricitySummary | null,
+  now: Date,
+) {
+  const actualPoints = readings
+    .slice()
+    .sort((left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime())
+    .map((reading) => ({
+      label: formatChartDate(reading.recordedAt),
+      value: reading.remainingKwh,
+      isEstimated: false,
+    }));
+
+  const liveEstimatedCurrentKwh = getLiveEstimatedCurrentKwh(summary, now);
+
+  if (!summary?.latest || liveEstimatedCurrentKwh === null) {
+    return actualPoints;
+  }
+
+  const latestRecordedAt = new Date(summary.latest.recordedAt);
+
+  if (latestRecordedAt.getTime() >= now.getTime()) {
+    return actualPoints;
+  }
+
+  return [
+    ...actualPoints,
+    {
+      label: formatChartDate(now.toISOString()),
+      value: liveEstimatedCurrentKwh,
+      isEstimated: true,
+    },
+  ];
+}
+
+function formatChartDate(value: string) {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function roundToTwo(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 function getElectricityStatusLabel(status: ElectricitySummary['status']) {

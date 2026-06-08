@@ -172,8 +172,11 @@ export type ElectricitySummary = {
   alertThresholdKwh: number;
   electricityPriceYuanPerKwh: number;
   dailyUsageKwh: number;
+  dailyCostYuan: number;
   validSegmentCount: number;
   ignoredSegmentCount: number;
+  estimatedCurrentKwh: number | null;
+  estimatedCurrentAt: string | null;
   daysUntilThreshold: number | null;
   estimatedThresholdAt: string | null;
   status: 'NO_DATA' | 'OK' | 'WARNING' | 'LOW';
