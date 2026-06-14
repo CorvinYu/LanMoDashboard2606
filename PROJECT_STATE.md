@@ -22,6 +22,7 @@ reuse mature components, keep business code focused, and avoid vendor lock-in.
 - `postgres`: PostgreSQL on port `5432`
 - `redis`: Redis on port `6379`
 - `adminer`: database UI on port `8080`
+- `docker-compose.prod.yml`: production-oriented compose that exposes only `80/443` through Caddy
 
 ## Useful URLs
 
@@ -65,6 +66,11 @@ reuse mature components, keep business code focused, and avoid vendor lock-in.
   - archive/delete task
   - priority and due date fields
 - Same-origin `/api` proxy for Docker/Nginx and Vite dev server, so mobile devices can access the same backend through the frontend host.
+- Production deployment baseline:
+  - `docker-compose.prod.yml`
+  - Caddy HTTPS reverse proxy
+  - production env template
+  - Swagger disabled by default in production
 - Electricity monitoring MVP:
   - record current or historical remaining kWh readings
   - record whether recharge happened and recharge amount in yuan
@@ -105,10 +111,42 @@ curl http://localhost:3000/api/health
 Unauthenticated `GET /api/tasks` returns `401`, and a temporary test account was able
 to register, call `/api/auth/me`, and call the protected tasks endpoint.
 
+The full account management flow was verified via API:
+register → login → GET /auth/me → PATCH /auth/me (email, displayName, password) → logout.
+All endpoints return correct responses.
+
+The npm dev startup (frontend `npm run dev` + backend `npm run start:dev`) was verified
+working, with the Vite dev server proxying `/api` to `http://localhost:4000`.
+
 ## Start Command
+
+### Docker
 
 ```bash
 docker compose up --build -d
+```
+
+### npm 开发启动
+
+```bash
+# 1. 安装依赖
+cd apps/backend && npm install
+cd ../frontend && npm install
+
+# 2. 配置 .env（复制项目根目录或 apps/backend 下）
+# 数据库和 Redis 地址需指向本地 localhost
+
+# 3. 初始化数据库
+cd apps/backend
+npx prisma generate
+npx prisma db push
+
+# 4. 启动后端（端口 4000）
+npm run start:dev
+
+# 5. 启动前端（端口 3000）
+cd ../frontend
+npm run dev
 ```
 
 If Docker permission is not configured for the current user:

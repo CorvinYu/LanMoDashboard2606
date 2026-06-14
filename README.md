@@ -39,10 +39,61 @@
 
 ## 启动
 
+### Docker 启动
+
 ```bash
 cp .env.example .env
 docker compose up --build -d
 ```
+
+### npm 开发启动
+
+如果不方便使用 Docker，也可以直接在本地用 npm 启动前端和后端。
+
+环境要求：Node.js、PostgreSQL（默认 `localhost:5432`）、Redis（默认 `localhost:6379`）。
+
+1. 安装依赖：
+
+```bash
+cd apps/backend
+npm install
+
+cd ../frontend
+npm install
+```
+
+2. 配置环境变量：
+
+后端使用项目根目录或 `apps/backend` 下的 `.env` 文件。开发时数据库和 Redis 地址需要指向本地：
+
+```bash
+DATABASE_URL=postgresql://dashboard:dashboard_password@localhost:5432/personal_dashboard
+REDIS_URL=redis://localhost:6379
+```
+
+3. 生成 Prisma Client 并同步数据库：
+
+```bash
+cd apps/backend
+npx prisma generate
+npx prisma db push
+```
+
+4. 启动后端（端口 4000）：
+
+```bash
+cd apps/backend
+npm run start:dev
+```
+
+5. 启动前端（端口 3000）：
+
+```bash
+cd apps/frontend
+npm run dev
+```
+
+前端 Vite dev server 已配置 `/api` 同源代理到 `http://localhost:4000`，开发时无需额外配置。
 
 访问地址：
 
@@ -74,3 +125,61 @@ docker compose down
 docker compose up --build -d backend
 docker compose up --build -d frontend
 ```
+
+## 云服务器部署
+
+推荐把云服务器作为唯一数据源。手机、电脑和后续安卓 App 都直接访问同一套服务，这样不需要再做设备间同步。
+
+仓库里已经补充了首版生产部署文件：
+
+- `docker-compose.prod.yml`
+- `deploy/Caddyfile`
+- `.env.production.example`
+
+### 首次部署
+
+1. 准备一个已解析到云服务器公网 IP 的域名，例如 `dashboard.example.com`。
+2. 复制生产环境变量模板：
+
+```bash
+cp .env.production.example .env
+```
+
+3. 修改 `.env` 中这些关键值：
+   - `POSTGRES_PASSWORD`
+   - `DATABASE_URL`
+   - `JWT_SECRET`
+   - `FRONTEND_URL`
+   - `APP_DOMAIN`
+   - `AI_*`
+   - `MICROSOFT_*`
+4. 确保云服务器安全组只开放 `80` 和 `443`。
+5. 启动生产编排：
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+部署完成后，Caddy 会自动申请 HTTPS 证书，并把外部请求转发到前端容器；前端再通过同源 `/api` 代理后端。
+
+### 生产环境说明
+
+- 生产编排不再对公网暴露 PostgreSQL、Redis、NestJS 和 Adminer。
+- PostgreSQL 和 Redis 都使用持久化 volume。
+- 后端默认在 `NODE_ENV=production` 下关闭 Swagger；如需临时开启，可将 `ENABLE_SWAGGER=true`。
+- `MICROSOFT_REDIRECT_URI` 必须和线上域名一致，例如：
+
+```text
+https://dashboard.example.com/api/integrations/microsoft-todo/callback
+```
+
+### 后续更新
+
+本地完成新功能后，提交代码并推到 Git 仓库。云服务器更新时执行：
+
+```bash
+git pull
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+当前后端容器启动时会执行 `prisma db push --skip-generate`，所以数据库结构会跟随最新 Prisma schema 自动同步。这个方式适合当前迭代阶段；后续如果进入稳定生产期，建议再切换到正式 Prisma migration 流程。
