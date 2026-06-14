@@ -6,6 +6,7 @@ import {
   CheckSquare,
   Clock,
   Edit3,
+  ExternalLink,
   ListTodo,
   LogOut,
   PanelLeft,
@@ -88,7 +89,8 @@ type PageKey =
   | 'reminders'
   | 'scores'
   | 'ai'
-  | 'account';
+  | 'account'
+  | 'external';
 
 const navigationItems: Array<{
   key: PageKey;
@@ -149,6 +151,12 @@ const navigationItems: Array<{
     title: 'AI 助手',
     description: '生成建议并确认应用',
     icon: Bot,
+  },
+  {
+    key: 'external',
+    title: '外部面板',
+    description: '嵌入本地服务或第三方页面',
+    icon: ExternalLink,
   },
 ];
 
@@ -395,6 +403,7 @@ export function App() {
         {activePage === 'reminders' ? <PlaceholderPage title="提醒" /> : null}
         {activePage === 'scores' ? <PlaceholderPage title="每日评分" /> : null}
         {activePage === 'ai' ? <PlaceholderPage title="AI 助手" /> : null}
+        {activePage === 'external' ? <ExternalPanelPage /> : null}
         {activePage === 'account' ? (
           <AccountPage currentUser={currentUser} onAccountUpdated={handleAuthSuccess} />
         ) : null}
@@ -1278,6 +1287,288 @@ function AccountPage({
         {error ? <p className="error-text">{error}</p> : null}
       </div>
     </section>
+  );
+}
+
+function ExternalPanelPage() {
+  return (
+    <section className="external-page">
+      <div className="section-heading">
+        <h2>外部面板</h2>
+        <CapsuleManagerButton />
+      </div>
+      <CapsuleGrid />
+    </section>
+  );
+}
+
+const CAPSULE_STORAGE_KEY = 'lanmo2606_capsules';
+
+type CapsuleCrop = { x: number; y: number; w: number; h: number };
+
+type Capsule = {
+  id: string;
+  url: string;
+  crop: CapsuleCrop | null;
+};
+
+function loadCapsules(): Capsule[] {
+  try {
+    const raw = window.localStorage.getItem(CAPSULE_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as Capsule[];
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveCapsules(caps: Capsule[]) {
+  window.localStorage.setItem(CAPSULE_STORAGE_KEY, JSON.stringify(caps));
+}
+
+function CapsuleManagerButton() {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState('');
+
+  function handleCreate() {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    const caps = loadCapsules();
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    caps.push({ id, url: trimmed, crop: null });
+    saveCapsules(caps);
+    setUrl('');
+    setOpen(false);
+    window.dispatchEvent(new Event('capsules-changed'));
+  }
+
+  if (!open) {
+    return (
+      <button className="primary-button" type="button" onClick={() => setOpen(true)}>
+        <Plus size={18} />
+        <span>新建胶囊</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="capsule-create-inline">
+      <input
+        autoComplete="url"
+        inputMode="url"
+        onChange={(e) => setUrl(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
+        placeholder="输入网页地址，例如 https://ai.cloudhabitatsh.com/dashboard/wallet"
+        type="text"
+        value={url}
+      />
+      <button className="primary-button" type="button" onClick={handleCreate}>确定</button>
+      <button className="primary-button" type="button" onClick={() => setOpen(false)} style={{ background: '#5d6971' }}>取消</button>
+    </div>
+  );
+}
+
+function CapsuleGrid() {
+  const [capsules, setCapsules] = useState<Capsule[]>(loadCapsules);
+
+  useEffect(() => {
+    function handler() { setCapsules(loadCapsules()); }
+    window.addEventListener('capsules-changed', handler);
+    return () => window.removeEventListener('capsules-changed', handler);
+  }, []);
+
+  function updateCapsule(id: string, patch: Partial<Capsule>) {
+    const caps = loadCapsules().map((c) => c.id === id ? { ...c, ...patch } : c);
+    saveCapsules(caps);
+    setCapsules(caps);
+  }
+
+  function removeCapsule(id: string) {
+    const caps = loadCapsules().filter((c) => c.id !== id);
+    saveCapsules(caps);
+    setCapsules(caps);
+  }
+
+  if (capsules.length === 0) {
+    return (
+      <div className="task-panel">
+        <p className="muted">还没有胶囊。点击右上角"新建胶囊"创建第一个外部页面嵌入。</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="capsule-grid">
+      {capsules.map((cap) => (
+        <CapsuleCard
+          key={cap.id}
+          capsule={cap}
+          onUpdate={(patch) => updateCapsule(cap.id, patch)}
+          onRemove={() => removeCapsule(cap.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CapsuleCard({
+  capsule,
+  onUpdate,
+  onRemove,
+}: {
+  capsule: Capsule;
+  onUpdate: (patch: Partial<Capsule>) => void;
+  onRemove: () => void;
+}) {
+  const [isPicking, setIsPicking] = useState(false);
+  const pickStart = useRef<{ x: number; y: number } | null>(null);
+  const [pickRect, setPickRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const isPickingRef = useRef(false);
+
+  function startPicking() {
+    setIsPicking(true);
+    isPickingRef.current = true;
+  }
+
+  function stopPicking() {
+    setIsPicking(false);
+    isPickingRef.current = false;
+    pickStart.current = null;
+    setPickRect(null);
+  }
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (!isPickingRef.current || !wrapperRef.current) return;
+      if (e.button !== 0) return;
+      const rect = wrapperRef.current.getBoundingClientRect();
+      pickStart.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+      setPickRect(null);
+    }
+
+    function onMouseMove(e: MouseEvent) {
+      if (!isPickingRef.current || !pickStart.current || !wrapperRef.current) return;
+      const rect = wrapperRef.current.getBoundingClientRect();
+      const curX = e.clientX - rect.left;
+      const curY = e.clientY - rect.top;
+      const ps = pickStart.current;
+      setPickRect({
+        x: Math.min(ps.x, curX),
+        y: Math.min(ps.y, curY),
+        w: Math.abs(curX - ps.x),
+        h: Math.abs(curY - ps.y),
+      });
+    }
+
+    function onMouseUp() {
+      if (!isPickingRef.current) return;
+      const ps = pickStart.current;
+      if (ps) {
+        setPickRect((currentRect) => {
+          if (!currentRect) return null;
+          onUpdate({
+            crop: {
+              x: Math.round(currentRect.x),
+              y: Math.round(currentRect.y),
+              w: Math.round(currentRect.w),
+              h: Math.round(currentRect.h),
+            },
+          });
+          return null;
+        });
+      }
+      stopPicking();
+    }
+
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [onUpdate]);
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && isPicking) {
+        stopPicking();
+      }
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isPicking]);
+
+  const crop = capsule.crop;
+  const hasCrop = crop && crop.w > 0 && crop.h > 0;
+
+  function labelFromUrl(url: string) {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url.slice(0, 40);
+    }
+  }
+
+  return (
+    <div className="capsule-card">
+      <div className="capsule-card-header">
+        <span className="capsule-card-label">{labelFromUrl(capsule.url)}</span>
+        <div className="capsule-card-actions">
+          <button className="heading-button" type="button" onClick={isPicking ? stopPicking : startPicking}>
+            {isPicking ? '取消选取' : hasCrop ? '重选' : '选取区域'}
+          </button>
+          {hasCrop ? (
+            <button className="heading-button" type="button" onClick={() => onUpdate({ crop: null })}>
+              重置
+            </button>
+          ) : null}
+          <button className="icon-button" onClick={onRemove} title="删除胶囊" type="button">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+      <div
+        className={`capsule-frame-wrapper ${isPicking ? 'external-picking' : ''}`}
+        ref={wrapperRef}
+      >
+        {hasCrop && !isPicking ? (
+          <div className="capsule-frame-crop" style={{ width: crop.w, height: crop.h }}>
+            <div className="capsule-frame-crop-inner" style={{ left: -crop.x, top: -crop.y }}>
+              <iframe
+                className="capsule-frame"
+                src={capsule.url}
+                title={labelFromUrl(capsule.url)}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                style={{ width: 1440, height: 2000 }}
+              />
+            </div>
+          </div>
+        ) : (
+          <iframe
+            className="capsule-frame"
+            src={capsule.url}
+            title={labelFromUrl(capsule.url)}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          />
+        )}
+        {isPicking ? (
+          <div className="external-picker-overlay">
+            {pickRect ? (
+              <div
+                className="external-picker-rect"
+                style={{ left: pickRect.x, top: pickRect.y, width: pickRect.w, height: pickRect.h }}
+              />
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

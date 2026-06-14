@@ -1370,6 +1370,132 @@ textarea {
   margin-bottom: 8px;
 }
 
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.external-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Use min-height that adapts to content, not fixed */
+.external-page .section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.capsule-create-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.capsule-create-inline input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.capsule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.capsule-card {
+  border: 1px solid #dde1dc;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.capsule-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e0e5df;
+  background: #fbfcfa;
+}
+
+.capsule-card-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #354148;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capsule-card-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.capsule-frame-wrapper {
+  height: 340px;
+  border: 0;
+  background: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.capsule-frame-wrapper.external-picking {
+  cursor: crosshair;
+}
+
+.capsule-frame-wrapper.external-picking iframe {
+  pointer-events: none;
+}
+
+.capsule-frame-wrapper iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.external-picker-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.external-picker-rect {
+  position: absolute;
+  border: 2px dashed #a13d2d;
+  background: rgb(161 61 45 / 15%);
+  pointer-events: none;
+  border-radius: 2px;
+}
+}
+
+.capsule-frame-crop {
+  overflow: hidden;
+  position: relative;
+}
+
+.capsule-frame-crop-inner {
+  position: absolute;
+}
+
+.capsule-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 .icon-button {
   width: 36px;
   height: 36px;
