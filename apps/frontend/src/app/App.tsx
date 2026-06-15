@@ -3647,6 +3647,36 @@ function ElectricityLineChart({
   const estimatedPoint = plotPoints.find((point) => point.isEstimated) ?? null;
   const hoveredPoint = hoveredPointIndex === null ? null : plotPoints[hoveredPointIndex];
 
+  // Pick x-axis labels with minimum pixel gap to avoid text overlap
+  const MIN_X_LABEL_GAP = 90;
+  const xLabelIndices: number[] = [];
+  let lastPlacedIdx = -1;
+
+  for (let i = 0; i < plotPoints.length; i++) {
+    if (i === 0) {
+      xLabelIndices.push(i);
+      lastPlacedIdx = i;
+      continue;
+    }
+
+    if (plotPoints[i].x - plotPoints[lastPlacedIdx].x >= MIN_X_LABEL_GAP) {
+      xLabelIndices.push(i);
+      lastPlacedIdx = i;
+    }
+  }
+
+  // Always include the last point
+  const lastIdx = plotPoints.length - 1;
+  const shownLastIdx = xLabelIndices[xLabelIndices.length - 1];
+
+  if (shownLastIdx !== lastIdx) {
+    if (plotPoints[lastIdx].x - plotPoints[shownLastIdx].x < MIN_X_LABEL_GAP && xLabelIndices.length > 1) {
+      xLabelIndices[xLabelIndices.length - 1] = lastIdx;
+    } else {
+      xLabelIndices.push(lastIdx);
+    }
+  }
+
   return (
     <div className="electricity-chart">
       <svg aria-label="剩余电量曲线图" viewBox={`0 0 ${width} ${height}`} role="img">
@@ -3685,7 +3715,7 @@ function ElectricityLineChart({
         />
         <polyline className="electricity-chart-line" fill="none" points={polyline} />
         {actualPoints.map((point) => (
-          <g key={`${point.label}-${point.readingId ?? 'actual'}`}>
+          <g key={`${point.readingId ?? 'est'}-${point.timestampMs}-${point.value}`}>
             <circle
               className="electricity-chart-hit"
               cx={point.x}
@@ -3719,11 +3749,11 @@ function ElectricityLineChart({
           </>
         ) : null}
         {plotPoints.map((point, index) =>
-          index === 0 || index === plotPoints.length - 1 || index === Math.floor(plotPoints.length / 2) ? (
+          xLabelIndices.includes(index) ? (
             <text
               className="electricity-chart-tick electricity-chart-tick-x"
-              key={`${point.label}-x`}
-              textAnchor={index === 0 ? 'start' : index === plotPoints.length - 1 ? 'end' : 'middle'}
+              key={`x-${point.timestampMs}-${index}`}
+              textAnchor={index === 0 ? 'start' : index === lastIdx ? 'end' : 'middle'}
               x={point.x}
               y={height - 18}
             >
@@ -4037,17 +4067,36 @@ function buildElectricityChartPoints(
   rangeDays: number,
 ): ElectricityChartPoint[] {
   const cutoffMs = now.getTime() - rangeDays * 24 * 60 * 60 * 1000;
-  const actualPoints = readings
+  const allSorted = readings
     .slice()
-    .sort((left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime())
-    .filter((reading) => new Date(reading.recordedAt).getTime() >= cutoffMs)
-    .map((reading) => ({
+    .sort((left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime());
+  const visible = allSorted.filter((reading) => new Date(reading.recordedAt).getTime() >= cutoffMs);
+
+  const actualPoints: ElectricityChartPoint[] = [];
+
+  for (const reading of visible) {
+    const timestampMs = new Date(reading.recordedAt).getTime();
+
+    if (reading.didRecharge && reading.rechargeKwh !== null && reading.rechargeKwh > 0) {
+      const preRechargeKwh = Math.max(0, roundToTwo(reading.remainingKwh - reading.rechargeKwh));
+
+      actualPoints.push({
+        label: formatChartDate(reading.recordedAt),
+        value: preRechargeKwh,
+        isEstimated: false,
+        readingId: reading.id,
+        timestampMs,
+      });
+    }
+
+    actualPoints.push({
       label: formatChartDate(reading.recordedAt),
       value: reading.remainingKwh,
       isEstimated: false,
       readingId: reading.id,
-      timestampMs: new Date(reading.recordedAt).getTime(),
-    }));
+      timestampMs,
+    });
+  }
 
   const liveEstimatedCurrentKwh = getLiveEstimatedCurrentKwh(summary, now);
 

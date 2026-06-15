@@ -123,7 +123,9 @@ export class ElectricityService {
         continue;
       }
 
-      const usedKwh = previous.remainingKwh + (current.rechargeKwh ?? 0) - current.remainingKwh;
+      const usedKwh = previous.didRecharge
+        ? previous.remainingKwh - current.remainingKwh
+        : previous.remainingKwh + (current.rechargeKwh ?? 0) - current.remainingKwh;
 
       if (usedKwh < 0) {
         ignoredSegmentCount += 1;
