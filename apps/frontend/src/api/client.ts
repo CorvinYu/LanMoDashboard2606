@@ -115,6 +115,7 @@ export type RoutineHabit = {
   dependsOnId: string | null;
   delayValue: number | null;
   delayUnit: RoutineIntervalUnit | null;
+  dependsOnFixedTime: string | null;
   dependsOn: { id: string; title: string } | null;
 };
 
@@ -131,6 +132,7 @@ export type CreateRoutineHabitInput = {
   dependsOnId?: string;
   delayValue?: number;
   delayUnit?: RoutineIntervalUnit;
+  dependsOnFixedTime?: string;
 };
 
 export type UpdateRoutineHabitInput = Partial<CreateRoutineHabitInput> & {

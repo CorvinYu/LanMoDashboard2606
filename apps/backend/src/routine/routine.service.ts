@@ -15,6 +15,7 @@ export type CreateRoutineHabitBody = {
   dependsOnId?: string;
   delayValue?: number;
   delayUnit?: RoutineIntervalUnit;
+  dependsOnFixedTime?: string;
 };
 
 export type UpdateRoutineHabitBody = Partial<CreateRoutineHabitBody> & {
@@ -87,6 +88,7 @@ export class RoutineService {
         dependsOnId: body.dependsOnId ?? null,
         delayValue: body.delayValue ?? null,
         delayUnit: body.delayUnit ?? null,
+        dependsOnFixedTime: body.dependsOnFixedTime ?? null,
       },
     });
   }
@@ -118,6 +120,7 @@ export class RoutineService {
         dependsOnId: body.dependsOnId === undefined ? undefined : (body.dependsOnId || null),
         delayValue: body.delayValue === undefined ? undefined : (body.delayValue ?? null),
         delayUnit: body.delayUnit === undefined ? undefined : (body.delayUnit ?? null),
+        dependsOnFixedTime: body.dependsOnFixedTime === undefined ? undefined : (body.dependsOnFixedTime || null),
       },
     });
   }
@@ -233,6 +236,30 @@ export class RoutineService {
   ) {
     const habit = await this.ensureOwnHabit(id, userId);
     const performedAt = body.performedAt ? this.parseDate(body.performedAt, '打卡时间不正确') : new Date();
+
+    // 子事项（有依赖父事项）：打卡后归入未启用状态，不推进自己的周期
+    if (habit.dependsOnId) {
+      return this.prisma.$transaction(async (tx) => {
+        const checkIn = await tx.routineCheckIn.create({
+          data: {
+            userId,
+            habitId: id,
+            performedAt,
+            dueAt: habit.nextDueAt,
+            status,
+            note: body.note?.trim() || null,
+          },
+        });
+        const updatedHabit = await tx.routineHabit.update({
+          where: { id },
+          data: { isActive: false, lastRemindedAt: null },
+        });
+
+        return { habit: updatedHabit, checkIn };
+      });
+    }
+
+    // 普通事项（父事项）：正常推进周期 + 触发依赖它的子事项
     const nextDueAt = this.scheduleNextDueAt(habit, performedAt);
 
     return this.prisma.$transaction(async (tx) => {
@@ -254,14 +281,24 @@ export class RoutineService {
         },
       });
 
-      // 查找依赖当前事项的子事项，自动调度它们的下一次到期时间
+      // 查找依赖当前事项的子事项，自动调度它们的到期时间
       const dependents = await tx.routineHabit.findMany({
         where: { dependsOnId: id, userId },
       });
 
       for (const dependent of dependents) {
         if (dependent.delayValue && dependent.delayUnit) {
-          const dependentNextDueAt = this.addInterval(performedAt, dependent.delayValue, dependent.delayUnit);
+          let dependentNextDueAt = this.addInterval(performedAt, dependent.delayValue, dependent.delayUnit);
+
+          // 如果设置了固定时间点，应用到计算结果上
+          if (dependent.dependsOnFixedTime) {
+            const [hours, minutes] = dependent.dependsOnFixedTime.split(':').map(Number);
+            dependentNextDueAt.setHours(hours, minutes, 0, 0);
+
+            if (dependentNextDueAt.getTime() <= Date.now()) {
+              dependentNextDueAt.setDate(dependentNextDueAt.getDate() + 1);
+            }
+          }
 
           await tx.routineHabit.update({
             where: { id: dependent.id },

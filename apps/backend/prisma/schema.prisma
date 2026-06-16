@@ -221,6 +221,7 @@ model RoutineHabit {
   dependsOnId  String?              @map("depends_on_id")
   delayValue   Int?                 @map("delay_value")
   delayUnit    RoutineIntervalUnit? @map("delay_unit")
+  dependsOnFixedTime String?        @map("depends_on_fixed_time")
 
   dependsOn  RoutineHabit?  @relation("HabitDependency", fields: [dependsOnId], references: [id])
   dependents RoutineHabit[] @relation("HabitDependency")

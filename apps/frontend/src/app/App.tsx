@@ -2596,6 +2596,7 @@ function RoutinePage() {
   const [dependsOnId, setDependsOnId] = useState('');
   const [delayValue, setDelayValue] = useState(1);
   const [delayUnit, setDelayUnit] = useState<RoutineIntervalUnit>('DAYS');
+  const [dependsOnFixedTime, setDependsOnFixedTime] = useState('');
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const [editHabitTitle, setEditHabitTitle] = useState('');
   const [editHabitDescription, setEditHabitDescription] = useState('');
@@ -2609,6 +2610,7 @@ function RoutinePage() {
   const [editDependsOnId, setEditDependsOnId] = useState('');
   const [editDelayValue, setEditDelayValue] = useState(1);
   const [editDelayUnit, setEditDelayUnit] = useState<RoutineIntervalUnit>('DAYS');
+  const [editDependsOnFixedTime, setEditDependsOnFixedTime] = useState('');
   const [isSavingHabitEdit, setIsSavingHabitEdit] = useState(false);
   const [wentToBedAt, setWentToBedAt] = useState('');
   const [fellAsleepAt, setFellAsleepAt] = useState('');
@@ -2681,6 +2683,7 @@ function RoutinePage() {
         dependsOnId: dependsOnId || undefined,
         delayValue: dependsOnId ? delayValue : undefined,
         delayUnit: dependsOnId ? delayUnit : undefined,
+        dependsOnFixedTime: dependsOnId ? (dependsOnFixedTime || undefined) : undefined,
       });
       setRoutineMessage('检查事项已创建。');
       setTitle('');
@@ -2695,6 +2698,7 @@ function RoutinePage() {
       setDependsOnId('');
       setDelayValue(1);
       setDelayUnit('DAYS');
+      setDependsOnFixedTime('');
       await refreshRoutinePage();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : '检查事项创建失败');
@@ -2799,6 +2803,7 @@ function RoutinePage() {
     setEditDependsOnId(habit.dependsOnId ?? '');
     setEditDelayValue(habit.delayValue ?? 1);
     setEditDelayUnit(habit.delayUnit ?? 'DAYS');
+    setEditDependsOnFixedTime(habit.dependsOnFixedTime ?? '');
     setError('');
   }
 
@@ -2816,6 +2821,7 @@ function RoutinePage() {
     setEditDependsOnId('');
     setEditDelayValue(1);
     setEditDelayUnit('DAYS');
+    setEditDependsOnFixedTime('');
     setIsSavingHabitEdit(false);
   }
 
@@ -2854,6 +2860,7 @@ function RoutinePage() {
         dependsOnId: editDependsOnId || undefined,
         delayValue: editDependsOnId ? editDelayValue : undefined,
         delayUnit: editDependsOnId ? editDelayUnit : undefined,
+        dependsOnFixedTime: editDependsOnId ? (editDependsOnFixedTime || undefined) : undefined,
       });
       setRoutineMessage('检查事项已更新。');
       handleCancelHabitEdit();
@@ -2920,47 +2927,83 @@ function RoutinePage() {
               </select>
             </label>
 
-            <label>
-              <span>间隔</span>
-              <input
-                min={1}
-                type="number"
-                value={intervalValue}
-                onChange={(event) => setIntervalValue(Number(event.target.value))}
-              />
-            </label>
+            {!dependsOnId ? (
+              <label>
+                <span>间隔</span>
+                <input
+                  min={1}
+                  type="number"
+                  value={intervalValue}
+                  onChange={(event) => setIntervalValue(Number(event.target.value))}
+                />
+              </label>
+            ) : (
+              <label>
+                <span>延迟</span>
+                <input
+                  min={1}
+                  type="number"
+                  value={delayValue}
+                  onChange={(event) => setDelayValue(Number(event.target.value))}
+                />
+              </label>
+            )}
           </div>
 
           <div className="form-row">
-            <label>
-              <span>单位</span>
-              <select value={intervalUnit} onChange={(event) => setIntervalUnit(event.target.value as RoutineIntervalUnit)}>
-                <option value="HOURS">小时</option>
-                <option value="DAYS">天</option>
-                <option value="WEEKS">周</option>
-                <option value="MONTHS">月</option>
-              </select>
-            </label>
+            {!dependsOnId ? (
+              <label>
+                <span>单位</span>
+                <select value={intervalUnit} onChange={(event) => setIntervalUnit(event.target.value as RoutineIntervalUnit)}>
+                  <option value="HOURS">小时</option>
+                  <option value="DAYS">天</option>
+                  <option value="WEEKS">周</option>
+                  <option value="MONTHS">月</option>
+                </select>
+              </label>
+            ) : (
+              <label>
+                <span>单位</span>
+                <select value={delayUnit} onChange={(event) => setDelayUnit(event.target.value as RoutineIntervalUnit)}>
+                  <option value="HOURS">小时</option>
+                  <option value="DAYS">天</option>
+                  <option value="WEEKS">周</option>
+                </select>
+              </label>
+            )}
 
-            <label>
-              <span>预期时间</span>
-              <input
-                type="datetime-local"
-                value={nextDueAt}
-                onChange={(event) => setNextDueAt(event.target.value)}
-              />
-            </label>
+            {!dependsOnId ? (
+              <label>
+                <span>预期时间</span>
+                <input
+                  type="datetime-local"
+                  value={nextDueAt}
+                  onChange={(event) => setNextDueAt(event.target.value)}
+                />
+              </label>
+            ) : (
+              <label>
+                <span>固定时间（可选）</span>
+                <input
+                  type="time"
+                  value={dependsOnFixedTime}
+                  onChange={(event) => setDependsOnFixedTime(event.target.value)}
+                />
+              </label>
+            )}
           </div>
 
           <div className="routine-options">
-            <label>
-              <input
-                checked={isRolling}
-                onChange={(event) => setIsRolling(event.target.checked)}
-                type="checkbox"
-              />
-              <span>按打卡时间滚动计算</span>
-            </label>
+            {!dependsOnId ? (
+              <label>
+                <input
+                  checked={isRolling}
+                  onChange={(event) => setIsRolling(event.target.checked)}
+                  type="checkbox"
+                />
+                <span>按打卡时间滚动计算</span>
+              </label>
+            ) : null}
             <label>
               <input
                 checked={reminderEnabled}
@@ -2994,24 +3037,9 @@ function RoutinePage() {
                 </select>
               </label>
               {dependsOnId ? (
-                <div className="form-row">
-                  <label>
-                    <span>延迟</span>
-                    <input min={1} type="number" value={delayValue} onChange={(event) => setDelayValue(Number(event.target.value))} />
-                  </label>
-                  <label>
-                    <span>单位</span>
-                    <select value={delayUnit} onChange={(event) => setDelayUnit(event.target.value as RoutineIntervalUnit)}>
-                      <option value="HOURS">小时</option>
-                      <option value="DAYS">天</option>
-                      <option value="WEEKS">周</option>
-                    </select>
-                  </label>
-                </div>
-              ) : null}
-              {dependsOnId ? (
                 <p className="muted" style={{ fontSize: '12px' }}>
-                  在「{habits.find((h) => h.id === dependsOnId)?.title ?? ''}」完成后 {delayValue} {delayUnit === 'HOURS' ? '小时' : delayUnit === 'DAYS' ? '天' : '周'} 生成
+                  在「{habits.find((h) => h.id === dependsOnId)?.title ?? ''}」完成后 {delayValue} {delayUnit === 'HOURS' ? '小时' : delayUnit === 'DAYS' ? '天' : '周'}
+                  {dependsOnFixedTime ? `的 ${dependsOnFixedTime}` : ''} 生成
                 </p>
               ) : null}
             </div>
@@ -3080,31 +3108,64 @@ function RoutinePage() {
                             <option value="维护">维护</option>
                           </select>
                         </label>
-                        <label>
-                          <span>间隔</span>
-                          <input min={1} type="number" value={editHabitIntervalValue} onChange={(event) => setEditHabitIntervalValue(Number(event.target.value))} />
-                        </label>
+
+                        {!editDependsOnId ? (
+                          <label>
+                            <span>间隔</span>
+                            <input min={1} type="number" value={editHabitIntervalValue} onChange={(event) => setEditHabitIntervalValue(Number(event.target.value))} />
+                          </label>
+                        ) : (
+                          <label>
+                            <span>延迟</span>
+                            <input min={1} type="number" value={editDelayValue} onChange={(event) => setEditDelayValue(Number(event.target.value))} />
+                          </label>
+                        )}
                       </div>
                       <div className="form-row">
-                        <label>
-                          <span>单位</span>
-                          <select value={editHabitIntervalUnit} onChange={(event) => setEditHabitIntervalUnit(event.target.value as RoutineIntervalUnit)}>
-                            <option value="HOURS">小时</option>
-                            <option value="DAYS">天</option>
-                            <option value="WEEKS">周</option>
-                            <option value="MONTHS">月</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span>预期时间</span>
-                          <input type="datetime-local" value={editHabitNextDueAt} onChange={(event) => setEditHabitNextDueAt(event.target.value)} />
-                        </label>
+                        {!editDependsOnId ? (
+                          <label>
+                            <span>单位</span>
+                            <select value={editHabitIntervalUnit} onChange={(event) => setEditHabitIntervalUnit(event.target.value as RoutineIntervalUnit)}>
+                              <option value="HOURS">小时</option>
+                              <option value="DAYS">天</option>
+                              <option value="WEEKS">周</option>
+                              <option value="MONTHS">月</option>
+                            </select>
+                          </label>
+                        ) : (
+                          <label>
+                            <span>单位</span>
+                            <select value={editDelayUnit} onChange={(event) => setEditDelayUnit(event.target.value as RoutineIntervalUnit)}>
+                              <option value="HOURS">小时</option>
+                              <option value="DAYS">天</option>
+                              <option value="WEEKS">周</option>
+                            </select>
+                          </label>
+                        )}
+
+                        {!editDependsOnId ? (
+                          <label>
+                            <span>预期时间</span>
+                            <input type="datetime-local" value={editHabitNextDueAt} onChange={(event) => setEditHabitNextDueAt(event.target.value)} />
+                          </label>
+                        ) : (
+                          <label>
+                            <span>固定时间（可选）</span>
+                            <input
+                              type="time"
+                              value={editDependsOnFixedTime}
+                              onChange={(event) => setEditDependsOnFixedTime(event.target.value)}
+                            />
+                          </label>
+                        )}
                       </div>
                       <div className="routine-options">
-                        <label>
-                          <input checked={editHabitIsRolling} onChange={(event) => setEditHabitIsRolling(event.target.checked)} type="checkbox" />
-                          <span>按打卡时间滚动计算</span>
-                        </label>
+                        {!editDependsOnId ? (
+                          <label>
+                            <input checked={editHabitIsRolling} onChange={(event) => setEditHabitIsRolling(event.target.checked)} type="checkbox" />
+                            <span>按打卡时间滚动计算</span>
+                          </label>
+                        ) : null}
                         <label>
                           <input checked={editHabitReminderEnabled} onChange={(event) => setEditHabitReminderEnabled(event.target.checked)} type="checkbox" />
                           <span>逾期后生成提醒</span>
@@ -3131,22 +3192,19 @@ function RoutinePage() {
                           {editDependsOnId ? (
                             <div className="form-row">
                               <label>
-                                <span>延迟</span>
-                                <input min={1} type="number" value={editDelayValue} onChange={(event) => setEditDelayValue(Number(event.target.value))} />
-                              </label>
-                              <label>
-                                <span>单位</span>
-                                <select value={editDelayUnit} onChange={(event) => setEditDelayUnit(event.target.value as RoutineIntervalUnit)}>
-                                  <option value="HOURS">小时</option>
-                                  <option value="DAYS">天</option>
-                                  <option value="WEEKS">周</option>
-                                </select>
+                                <span>固定时间（可选）</span>
+                                <input
+                                  type="time"
+                                  value={editDependsOnFixedTime}
+                                  onChange={(event) => setEditDependsOnFixedTime(event.target.value)}
+                                />
                               </label>
                             </div>
                           ) : null}
                           {editDependsOnId ? (
                             <p className="muted" style={{ fontSize: '12px' }}>
-                              在「{habits.find((h) => h.id === editDependsOnId)?.title ?? ''}」完成后 {editDelayValue} {editDelayUnit === 'HOURS' ? '小时' : editDelayUnit === 'DAYS' ? '天' : '周'} 生成
+                              在「{habits.find((h) => h.id === editDependsOnId)?.title ?? ''}」完成后 {editDelayValue} {editDelayUnit === 'HOURS' ? '小时' : editDelayUnit === 'DAYS' ? '天' : '周'}
+                              {editDependsOnFixedTime ? `的 ${editDependsOnFixedTime}` : ''} 生成
                             </p>
                           ) : null}
                         </div>
@@ -3170,7 +3228,9 @@ function RoutinePage() {
                         {formatCountdown(habit.nextDueAt, now)}
                       </span>
                       {habit.lastCheckIn && <span>上次：{formatDate(habit.lastCheckIn.performedAt)}</span>}
-                      {habit.dependsOn && <span className="muted" style={{ fontSize: '12px' }}>等待「{habit.dependsOn.title}」完成后 {habit.delayValue} {habit.delayUnit === 'HOURS' ? '小时' : habit.delayUnit === 'DAYS' ? '天' : '周'} 生成</span>}
+                      {habit.dependsOn && !habit.isActive && <span className="muted" style={{ fontSize: '12px' }}>等待「{habit.dependsOn.title}」完成后触发</span>}
+                      {habit.dependsOn && habit.isActive && <span className="muted" style={{ fontSize: '12px' }}>等待「{habit.dependsOn.title}」完成后 {habit.delayValue} {habit.delayUnit === 'HOURS' ? '小时' : habit.delayUnit === 'DAYS' ? '天' : '周'}
+                        {habit.dependsOnFixedTime ? `的 ${habit.dependsOnFixedTime}` : ''} 生成</span>}
                     </>
                   )}
                 </div>
