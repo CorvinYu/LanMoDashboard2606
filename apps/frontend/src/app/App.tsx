@@ -2661,7 +2661,7 @@ function RoutinePage() {
       return;
     }
 
-    if (!nextDueAt) {
+    if (!nextDueAt && !dependsOnId) {
       setError('请选择预期执行时间点');
       return;
     }
@@ -2676,7 +2676,7 @@ function RoutinePage() {
         category,
         intervalValue,
         intervalUnit,
-        nextDueAt: new Date(nextDueAt).toISOString(),
+        nextDueAt: nextDueAt ? new Date(nextDueAt).toISOString() : new Date().toISOString(),
         isRolling,
         reminderEnabled,
         addToToday,
@@ -2837,7 +2837,7 @@ function RoutinePage() {
       return;
     }
 
-    if (!editHabitNextDueAt) {
+    if (!editHabitNextDueAt && !editDependsOnId) {
       setError('请选择预期执行时间点');
       return;
     }
@@ -2853,7 +2853,7 @@ function RoutinePage() {
         category: editHabitCategory,
         intervalValue: editHabitIntervalValue,
         intervalUnit: editHabitIntervalUnit,
-        nextDueAt: new Date(editHabitNextDueAt).toISOString(),
+        nextDueAt: editHabitNextDueAt ? new Date(editHabitNextDueAt).toISOString() : undefined,
         isRolling: editHabitIsRolling,
         reminderEnabled: editHabitReminderEnabled,
         addToToday: editHabitAddToToday,
