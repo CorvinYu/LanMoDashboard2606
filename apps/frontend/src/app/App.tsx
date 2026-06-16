@@ -2674,10 +2674,10 @@ function RoutinePage() {
         title,
         description,
         category,
-        intervalValue,
-        intervalUnit,
+        intervalValue: dependsOnId ? 1 : intervalValue,
+        intervalUnit: dependsOnId ? 'DAYS' : intervalUnit,
         nextDueAt: nextDueAt ? new Date(nextDueAt).toISOString() : new Date().toISOString(),
-        isRolling,
+        isRolling: dependsOnId ? false : isRolling,
         reminderEnabled,
         addToToday,
         dependsOnId: dependsOnId || undefined,
@@ -2851,10 +2851,10 @@ function RoutinePage() {
         title: editHabitTitle,
         description: editHabitDescription,
         category: editHabitCategory,
-        intervalValue: editHabitIntervalValue,
-        intervalUnit: editHabitIntervalUnit,
+        intervalValue: editDependsOnId ? 1 : editHabitIntervalValue,
+        intervalUnit: editDependsOnId ? 'DAYS' : editHabitIntervalUnit,
         nextDueAt: editHabitNextDueAt ? new Date(editHabitNextDueAt).toISOString() : undefined,
-        isRolling: editHabitIsRolling,
+        isRolling: editDependsOnId ? false : editHabitIsRolling,
         reminderEnabled: editHabitReminderEnabled,
         addToToday: editHabitAddToToday,
         dependsOnId: editDependsOnId || undefined,
@@ -3222,8 +3222,12 @@ function RoutinePage() {
                     </form>
                   ) : (
                     <>
-                      <span>每 {habit.intervalValue} {routineUnitLabels[habit.intervalUnit]}</span>
-                      <span>{habit.isRolling ? '滚动计算' : '固定时间'}</span>
+                      {!habit.dependsOnId ? (
+                        <>
+                          <span>每 {habit.intervalValue} {routineUnitLabels[habit.intervalUnit]}</span>
+                          <span>{habit.isRolling ? '滚动计算' : '固定时间'}</span>
+                        </>
+                      ) : null}
                       <span className={`countdown ${getCountdownState(habit.nextDueAt, now)}`}>
                         {formatCountdown(habit.nextDueAt, now)}
                       </span>
