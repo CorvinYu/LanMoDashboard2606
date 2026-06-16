@@ -89,6 +89,7 @@ export class RoutineService {
         delayValue: body.delayValue ?? null,
         delayUnit: body.delayUnit ?? null,
         dependsOnFixedTime: body.dependsOnFixedTime ?? null,
+        isActive: body.dependsOnId ? false : true,
       },
     });
   }
