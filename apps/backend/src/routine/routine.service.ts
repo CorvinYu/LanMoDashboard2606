@@ -261,7 +261,9 @@ export class RoutineService {
   }
 
   private scheduleNextDueAt(habit: HabitForSchedule, performedAt: Date) {
-    const base = habit.isRolling ? performedAt : habit.nextDueAt;
+    // 非滚动模式下，如果在到期前提前完成，按实际完成日期计算下一个周期
+    const isEarly = performedAt.getTime() < habit.nextDueAt.getTime();
+    const base = habit.isRolling || isEarly ? performedAt : habit.nextDueAt;
 
     return this.addInterval(base, habit.intervalValue, habit.intervalUnit);
   }

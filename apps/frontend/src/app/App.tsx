@@ -10,6 +10,8 @@ import {
   ListTodo,
   LogOut,
   PanelLeft,
+  Pause,
+  Play,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -2713,6 +2715,19 @@ function RoutinePage() {
     }
   }
 
+  async function handleTogglePauseHabit(habit: RoutineHabit) {
+    setError('');
+    setRoutineMessage('');
+
+    try {
+      await updateRoutineHabit(habit.id, { isActive: !habit.isActive });
+      setRoutineMessage(habit.isActive ? '已暂停。' : '已恢复。');
+      await refreshRoutinePage();
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : '操作失败');
+    }
+  }
+
   async function handleCheckOverdueHabits() {
     setError('');
     setRoutineMessage('');
@@ -3070,6 +3085,13 @@ function RoutinePage() {
                   </button>
                   <button aria-label="跳过本轮" onClick={() => handleSkipHabit(habit.id)} type="button">
                     <RotateCcw size={18} />
+                  </button>
+                  <button
+                    aria-label={habit.isActive ? '暂停' : '恢复'}
+                    onClick={() => handleTogglePauseHabit(habit)}
+                    type="button"
+                  >
+                    {habit.isActive ? <Pause size={18} /> : <Play size={18} />}
                   </button>
                   <button aria-label="编辑检查事项" onClick={() => handleStartHabitEdit(habit)} type="button">
                     <Edit3 size={18} />
@@ -3832,7 +3854,7 @@ const checkInStatusLabels = {
 
 function getRoutineStateLabel(habit: RoutineHabit) {
   if (!habit.isActive || habit.state === 'inactive') {
-    return '已停用';
+    return '已暂停';
   }
 
   if (habit.state === 'overdue') {
