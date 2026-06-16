@@ -112,6 +112,10 @@ export type RoutineHabit = {
   updatedAt: string;
   state: RoutineHabitState;
   lastCheckIn: RoutineCheckIn | null;
+  dependsOnId: string | null;
+  delayValue: number | null;
+  delayUnit: RoutineIntervalUnit | null;
+  dependsOn: { id: string; title: string } | null;
 };
 
 export type CreateRoutineHabitInput = {
@@ -124,6 +128,9 @@ export type CreateRoutineHabitInput = {
   isRolling?: boolean;
   reminderEnabled?: boolean;
   addToToday?: boolean;
+  dependsOnId?: string;
+  delayValue?: number;
+  delayUnit?: RoutineIntervalUnit;
 };
 
 export type UpdateRoutineHabitInput = Partial<CreateRoutineHabitInput> & {

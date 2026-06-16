@@ -218,6 +218,13 @@ model RoutineHabit {
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
 
+  dependsOnId  String?              @map("depends_on_id")
+  delayValue   Int?                 @map("delay_value")
+  delayUnit    RoutineIntervalUnit? @map("delay_unit")
+
+  dependsOn  RoutineHabit?  @relation("HabitDependency", fields: [dependsOnId], references: [id])
+  dependents RoutineHabit[] @relation("HabitDependency")
+
   user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   checkIns RoutineCheckIn[]
 

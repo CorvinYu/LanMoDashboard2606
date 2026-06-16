@@ -12,6 +12,9 @@ export type CreateRoutineHabitBody = {
   isRolling?: boolean;
   reminderEnabled?: boolean;
   addToToday?: boolean;
+  dependsOnId?: string;
+  delayValue?: number;
+  delayUnit?: RoutineIntervalUnit;
 };
 
 export type UpdateRoutineHabitBody = Partial<CreateRoutineHabitBody> & {
@@ -50,6 +53,9 @@ export class RoutineService {
           orderBy: { performedAt: 'desc' },
           take: 1,
         },
+        dependsOn: {
+          select: { id: true, title: true },
+        },
       },
       orderBy: [{ isActive: 'desc' }, { nextDueAt: 'asc' }, { createdAt: 'desc' }],
     });
@@ -78,6 +84,9 @@ export class RoutineService {
         isRolling: body.isRolling ?? false,
         reminderEnabled: body.reminderEnabled ?? true,
         addToToday: body.addToToday ?? false,
+        dependsOnId: body.dependsOnId ?? null,
+        delayValue: body.delayValue ?? null,
+        delayUnit: body.delayUnit ?? null,
       },
     });
   }
@@ -106,6 +115,9 @@ export class RoutineService {
         reminderEnabled: body.reminderEnabled,
         addToToday: body.addToToday,
         isActive: body.isActive,
+        dependsOnId: body.dependsOnId === undefined ? undefined : (body.dependsOnId || null),
+        delayValue: body.delayValue === undefined ? undefined : (body.delayValue ?? null),
+        delayUnit: body.delayUnit === undefined ? undefined : (body.delayUnit ?? null),
       },
     });
   }
@@ -241,6 +253,25 @@ export class RoutineService {
           lastRemindedAt: null,
         },
       });
+
+      // 查找依赖当前事项的子事项，自动调度它们的下一次到期时间
+      const dependents = await tx.routineHabit.findMany({
+        where: { dependsOnId: id, userId },
+      });
+
+      for (const dependent of dependents) {
+        if (dependent.delayValue && dependent.delayUnit) {
+          const dependentNextDueAt = this.addInterval(performedAt, dependent.delayValue, dependent.delayUnit);
+
+          await tx.routineHabit.update({
+            where: { id: dependent.id },
+            data: {
+              nextDueAt: dependentNextDueAt,
+              isActive: true,
+            },
+          });
+        }
+      }
 
       return { habit: updatedHabit, checkIn };
     });
