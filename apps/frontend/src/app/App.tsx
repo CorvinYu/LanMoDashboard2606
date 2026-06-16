@@ -4010,6 +4010,10 @@ const checkInStatusLabels = {
 };
 
 function getRoutineStateLabel(habit: RoutineHabit) {
+  if (habit.dependsOnId && !habit.isActive) {
+    return '休眠';
+  }
+
   if (!habit.isActive || habit.state === 'inactive') {
     return '已暂停';
   }
