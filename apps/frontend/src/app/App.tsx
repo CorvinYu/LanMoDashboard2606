@@ -3228,9 +3228,11 @@ function RoutinePage() {
                           <span>{habit.isRolling ? '滚动计算' : '固定时间'}</span>
                         </>
                       ) : null}
-                      <span className={`countdown ${getCountdownState(habit.nextDueAt, now)}`}>
-                        {formatCountdown(habit.nextDueAt, now)}
-                      </span>
+                      {habit.dependsOnId && !habit.isActive ? null : (
+                        <span className={`countdown ${getCountdownState(habit.nextDueAt, now)}`}>
+                          {formatCountdown(habit.nextDueAt, now)}
+                        </span>
+                      )}
                       {habit.lastCheckIn && <span>上次：{formatDate(habit.lastCheckIn.performedAt)}</span>}
                       {habit.dependsOn && !habit.isActive && <span className="muted" style={{ fontSize: '12px' }}>等待「{habit.dependsOn.title}」完成后触发</span>}
                       {habit.dependsOn && habit.isActive && <span className="muted" style={{ fontSize: '12px' }}>等待「{habit.dependsOn.title}」完成后 {habit.delayValue} {habit.delayUnit === 'HOURS' ? '小时' : habit.delayUnit === 'DAYS' ? '天' : '周'}
