@@ -3234,8 +3234,8 @@ function RoutinePage() {
                         </span>
                       )}
                       {habit.lastCheckIn && <span>上次：{formatDate(habit.lastCheckIn.performedAt)}</span>}
-                      {habit.dependsOn && !habit.isActive && <span className="muted" style={{ fontSize: '12px' }}>等待「{habit.dependsOn.title}」完成后触发</span>}
-                      {habit.dependsOn && habit.isActive && <span className="muted" style={{ fontSize: '12px' }}>等待「{habit.dependsOn.title}」完成后 {habit.delayValue} {habit.delayUnit === 'HOURS' ? '小时' : habit.delayUnit === 'DAYS' ? '天' : '周'}
+                      {habit.dependsOn && !habit.isActive && <span className="muted" style={{ fontSize: '12px' }}>等「{habit.dependsOn.title}」完成后 {habit.delayValue} {habit.delayUnit === 'HOURS' ? '小时' : habit.delayUnit === 'DAYS' ? '天' : '周'}{habit.dependsOnFixedTime ? `的 ${habit.dependsOnFixedTime}` : ''} 生成</span>}
+                      {habit.dependsOn && habit.isActive && <span className="muted" style={{ fontSize: '12px' }}>等「{habit.dependsOn.title}」完成后 {habit.delayValue} {habit.delayUnit === 'HOURS' ? '小时' : habit.delayUnit === 'DAYS' ? '天' : '周'}
                         {habit.dependsOnFixedTime ? `的 ${habit.dependsOnFixedTime}` : ''} 生成</span>}
                     </>
                   )}
