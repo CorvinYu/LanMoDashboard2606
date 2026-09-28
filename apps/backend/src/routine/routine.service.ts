@@ -337,6 +337,27 @@ export class RoutineService {
     return this.addInterval(base, habit.intervalValue, habit.intervalUnit);
   }
 
+  /**
+   * 把已过期的 nextDueAt 按原间隔反复推进，直到落在 now 之后。
+   * 复用 addInterval，保证与"打卡推进"完全同一套周期语义（供一键恢复正常日程使用）。
+   */
+  advanceOverdueNextDueAt(
+    nextDueAt: Date,
+    intervalValue: number,
+    intervalUnit: RoutineIntervalUnit,
+    now: Date,
+  ) {
+    let candidate = new Date(nextDueAt);
+    let steps = 0;
+
+    while (candidate.getTime() <= now.getTime() && steps < 10000) {
+      candidate = this.addInterval(candidate, intervalValue, intervalUnit);
+      steps += 1;
+    }
+
+    return { nextDueAt: candidate, steps };
+  }
+
   private addInterval(base: Date, value: number, unit: RoutineIntervalUnit) {
     const next = new Date(base);
 

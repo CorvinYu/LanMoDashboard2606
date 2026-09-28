@@ -5,5 +5,6 @@ import { RoutineService } from './routine.service';
 @Module({
   controllers: [RoutineController],
   providers: [RoutineService],
+  exports: [RoutineService],
 })
 export class RoutineModule {}

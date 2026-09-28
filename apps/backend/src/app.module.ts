@@ -6,6 +6,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { HealthController } from './health.controller';
 import { ElectricityModule } from './electricity/electricity.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 import { MediaModule } from './media/media.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { RoutineModule } from './routine/routine.module';
@@ -27,6 +28,7 @@ import { CoreModule } from './core.module';
     SuggestionsModule,
     IntegrationsModule,
     RoutineModule,
+    MaintenanceModule,
     ElectricityModule,
     MediaModule,
   ],

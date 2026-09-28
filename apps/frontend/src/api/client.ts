@@ -573,3 +573,74 @@ export function deleteMediaReview(id: string) {
     method: 'DELETE',
   });
 }
+
+// ───────────── 一键恢复正常日程（maintenance）─────────────
+
+export type ScheduleResetPlan = {
+  now: string;
+  shiftDays: { tasks: number; events: number };
+  tasks: Array<{ id: string; title: string; from: string; to: string }>;
+  events: Array<{
+    id: string;
+    title: string;
+    from: string;
+    to: string;
+    endsFrom: string;
+    endsTo: string;
+  }>;
+  habits: Array<{ id: string; title: string; from: string; to: string; steps: number }>;
+  reminders: Array<{ id: string; title: string; from: string; to: string }>;
+  counts: {
+    tasks: number;
+    events: number;
+    habits: number;
+    reminders: number;
+    total: number;
+  };
+  skipped: {
+    inactiveDependentHabits: number;
+    tasksWithoutDueAt: number;
+    remindersNotPending: number;
+  };
+};
+
+export type ScheduleResetResult = {
+  dryRun: boolean;
+  applied: boolean;
+  plan: ScheduleResetPlan;
+  snapshotFile: string | null;
+};
+
+export type ScheduleResetUndoResult = {
+  snapshotFile: string;
+  createdAt: string;
+  restored: {
+    tasks: number;
+    events: number;
+    habits: number;
+    reminders: number;
+    total: number;
+  };
+  missing: number;
+};
+
+export function previewScheduleReset() {
+  return request<ScheduleResetResult>('/maintenance/reset-schedule', {
+    method: 'POST',
+    body: JSON.stringify({ dryRun: true }),
+  });
+}
+
+export function applyScheduleReset() {
+  return request<ScheduleResetResult>('/maintenance/reset-schedule', {
+    method: 'POST',
+    body: JSON.stringify({ dryRun: false }),
+  });
+}
+
+export function undoLastScheduleReset(snapshotFile?: string) {
+  return request<ScheduleResetUndoResult>('/maintenance/reset-schedule/undo', {
+    method: 'POST',
+    body: JSON.stringify({ snapshotFile }),
+  });
+}

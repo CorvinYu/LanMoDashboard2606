@@ -1,6 +1,7 @@
 import {
   Activity,
   Bot,
+  CalendarClock,
   CalendarDays,
   Check,
   CheckSquare,
@@ -37,6 +38,7 @@ import {
   SleepLog,
   Task,
   TaskPriority,
+  applyScheduleReset,
   checkInRoutineHabit,
   checkOverdueRoutineHabits,
   completeTask,
@@ -66,6 +68,7 @@ import {
   listTasks,
   login,
   logout,
+  previewScheduleReset,
   pushMicrosoftTodo,
   register,
   restoreTask,
@@ -73,6 +76,7 @@ import {
   setUnauthorizedHandler,
   skipRoutineHabit,
   syncMicrosoftTodo,
+  undoLastScheduleReset,
   updateCountdownEvent,
   updateElectricityReading,
   updateMediaReview,
@@ -1736,6 +1740,10 @@ function TaskDashboardPage({
   const [isPushingMicrosoftTodo, setIsPushingMicrosoftTodo] = useState(false);
   const [integrationMessage, setIntegrationMessage] = useState('');
   const [integrationError, setIntegrationError] = useState('');
+  const [isResettingSchedule, setIsResettingSchedule] = useState(false);
+  const [scheduleResetMessage, setScheduleResetMessage] = useState('');
+  const [scheduleResetError, setScheduleResetError] = useState('');
+  const [scheduleResetSnapshot, setScheduleResetSnapshot] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
@@ -1898,6 +1906,78 @@ function TaskDashboardPage({
   async function handleRestoreTask(id: string) {
     await restoreTask(id);
     await refreshTasks();
+  }
+
+  async function handleResetSchedule() {
+    setIsResettingSchedule(true);
+    setScheduleResetError('');
+    setScheduleResetMessage('');
+
+    try {
+      const preview = await previewScheduleReset();
+      const { counts, shiftDays } = preview.plan;
+
+      if (counts.total === 0) {
+        setScheduleResetMessage('当前没有逾期内容，无需重置。');
+        return;
+      }
+
+      const samples = [
+        ...preview.plan.tasks.slice(0, 3).map((item) => `任务：${item.title}`),
+        ...preview.plan.events.slice(0, 2).map((item) => `倒计时：${item.title}`),
+        ...preview.plan.habits.slice(0, 2).map((item) => `规律事项：${item.title}`),
+      ];
+
+      const confirmed = window.confirm(
+        [
+          '将把逾期内容整体平移到今天之后（保留原有先后间隔）：',
+          `· 任务 ${counts.tasks} 项${shiftDays.tasks ? `（整体后移 ${shiftDays.tasks} 天）` : ''}`,
+          `· 倒计时 ${counts.events} 项${shiftDays.events ? `（整体后移 ${shiftDays.events} 天）` : ''}`,
+          `· 规律事项 ${counts.habits} 项（按原周期推进到今天之后）`,
+          `· 提醒 ${counts.reminders} 项（随所属内容一起平移）`,
+          '',
+          ...(samples.length ? ['示例：', ...samples.map((item) => `  ${item}`), ''] : []),
+          '任务状态（未完成 / 已完成）不会改变；执行前会自动存快照，可一键撤销。',
+          '',
+          '确认执行吗？',
+        ].join('\n'),
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      const result = await applyScheduleReset();
+
+      setScheduleResetSnapshot(result.snapshotFile);
+      setScheduleResetMessage(
+        `已恢复正常日程：共 ${result.plan.counts.total} 项（任务 ${result.plan.counts.tasks} / 倒计时 ${result.plan.counts.events} / 规律事项 ${result.plan.counts.habits} / 提醒 ${result.plan.counts.reminders}）`,
+      );
+
+      await Promise.all([refreshTasks(), refreshCountdownEvents()]);
+    } catch (error) {
+      setScheduleResetError(error instanceof Error ? error.message : '恢复正常日程失败');
+    } finally {
+      setIsResettingSchedule(false);
+    }
+  }
+
+  async function handleUndoScheduleReset() {
+    setIsResettingSchedule(true);
+    setScheduleResetError('');
+
+    try {
+      const result = await undoLastScheduleReset(scheduleResetSnapshot ?? undefined);
+
+      setScheduleResetMessage(`已撤销刚才的重置（恢复 ${result.restored.total} 项）`);
+      setScheduleResetSnapshot(null);
+
+      await Promise.all([refreshTasks(), refreshCountdownEvents()]);
+    } catch (error) {
+      setScheduleResetError(error instanceof Error ? error.message : '撤销失败');
+    } finally {
+      setIsResettingSchedule(false);
+    }
   }
 
   async function handleDeleteTask(id: string) {
@@ -2238,8 +2318,38 @@ function TaskDashboardPage({
                 <RefreshCw size={16} />
                 <span>重新排序</span>
               </button>
+              <button
+                aria-label="一键把逾期内容恢复到今天之后"
+                className="heading-button"
+                disabled={isResettingSchedule}
+                onClick={handleResetSchedule}
+                type="button"
+              >
+                <CalendarClock size={16} />
+                <span>{isResettingSchedule ? '处理中' : '恢复正常日程'}</span>
+              </button>
             </div>
           </div>
+
+          {scheduleResetError && <p className="error-text">{scheduleResetError}</p>}
+
+          {scheduleResetMessage && (
+            <div className="reset-schedule-message">
+              <p className="success-text">{scheduleResetMessage}</p>
+              {scheduleResetSnapshot && (
+                <button
+                  aria-label="撤销本次日程重置"
+                  className="heading-button"
+                  disabled={isResettingSchedule}
+                  onClick={handleUndoScheduleReset}
+                  type="button"
+                >
+                  <RotateCcw size={14} />
+                  <span>撤销</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {isLoadingTasks ? (
             <p className="muted">正在加载任务</p>
