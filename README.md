@@ -4,6 +4,24 @@
 
 本项目由 **vibecoding** 完成，目标不是做复杂平台，而是做一个每天可用、可逐步扩展、容易替换外部能力的个人工作台。
 
+## 文档地图（每份文档只有一个职责）
+
+| 文档 | 职责 |
+|---|---|
+| `README.md` | 项目简介、技术栈、启动与部署方式、文档地图（本文件） |
+| `AGENT_CONTEXT.md` | **接手上下文**：工程方针、业务边界、协作与提交规则、已知问题（任何 AI/Agent 先读它） |
+| `PROGRESS_MAP.md` | 进度地图：每个功能走到哪一步（已完成 / 待做 / 待研究 / 已验证） |
+| `TODO_AND_BUGS.md` | **未完成事项的唯一权威清单**：待办、Bug、想法池、待分析、开发难度评估 |
+| `PROJECT_STATE.md` | 工程状态：技术栈、部署形态、已实现、验证记录、启动命令 |
+| `OPEN_SOURCE_REFERENCES.md` | 开源项目参考、接入与复制代码登记（含许可证义务） |
+| `DONETICK_REFERENCE_ANALYSIS.md` | Donetick 参考项目分析（定时检查的设计来源） |
+
+### 完工三步（务必执行，否则文档必然分叉）
+
+1. `PROGRESS_MAP.md` 记录完成状态；
+2. `TODO_AND_BUGS.md` **删掉**已完成的对应条目（它只记未完成项）；
+3. 需要接手方知道的更新 `AGENT_CONTEXT.md`；工程状态变化更新 `PROJECT_STATE.md`。
+
 ## 技术栈
 
 - 前端：React、Vite、TypeScript、lucide-react
@@ -25,6 +43,10 @@
 - 电费监控：录入当前或历史电费读数，按 0.63 元/度把充值金额换算为电量，估算近期日耗电，在低于 15 度或即将低于阈值时提示。
 - 响应式布局：桌面三列任务面板，移动端优先显示任务和倒计时，侧边菜单适配手机。
 - Docker 化：前端、后端、PostgreSQL、Redis、Adminer 一键启动。
+- 今日看板：聚合今日任务、检查事项、倒数日、下一项日程与今日时间表，可直接完成或打卡。
+- 作品评分记录：作品本体 / 个人评分 / 外部平台评分三层模型，手动录入、列表、编辑与删除。
+- 外部面板：iframe 胶囊嵌入，可视化拖拽裁剪并持久化。
+- 维护：一键恢复正常日程——逾期内容整体平移到今天之后，先预览、自动快照、可一键撤销。
 
 ## 预期功能
 
@@ -38,6 +60,9 @@
 - refresh token、忘记密码、邮箱验证、多设备会话管理。
 
 ## 启动
+
+> 本机（Mac mini）当前不是 Docker 形态，而是 launchd 常驻的 dev 热更新（后端 4100 / 前端 3000）；
+> 端口、隧道与运维事实见 `AGENT_CONTEXT.md` 与 hub 的 `lanmo-dashboard/NOTES.md`。
 
 ### Docker 启动
 
@@ -79,7 +104,7 @@ npx prisma generate
 npx prisma db push
 ```
 
-4. 启动后端（端口 4000）：
+4. 启动后端（默认端口 4000，可用 `PORT` 覆盖）：
 
 ```bash
 cd apps/backend
@@ -93,7 +118,7 @@ cd apps/frontend
 npm run dev
 ```
 
-前端 Vite dev server 已配置 `/api` 同源代理到 `http://localhost:4000`，开发时无需额外配置。
+前端 Vite dev server 默认把 `/api` 代理到 `http://localhost:4000`；如需改目标（例如本机后端跑在 4100），在 `apps/frontend/.env.local` 里设置 `VITE_API_PROXY_TARGET`。
 
 访问地址：
 
