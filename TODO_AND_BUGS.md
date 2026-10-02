@@ -50,6 +50,7 @@
 
 ### AI 助手
 
+- `/api/ai/chat` 已加 JWT 鉴权（2026-10-03）；配好 `AI_API_KEY` / `AI_BASE_URL` / `AI_MODEL` 后才能真正使用。
 - 希望 AI 能根据一句话自动识别标题、时间和类型。
 - 希望 AI 可以判断一句话是任务、倒计时事件，还是提醒。
 - AI 只能生成建议，不能直接修改任务、倒计时、提醒或日历。
@@ -104,6 +105,7 @@
 
 ### 登录与账号
 
+- Swagger（`/api/docs`）默认关闭，需临时开启时在 `apps/backend/.env` 设 `ENABLE_SWAGGER=true` 并重启后端（2026-10-03 起）。
 - 需要多用户隔离。
 - 需要 refresh token、忘记密码、邮箱验证和多设备会话管理。
 
@@ -111,6 +113,17 @@
 
 - 外部面板：选取虚线框不实时显示、裁剪偏移、取消按钮偶发点不动。
 - MS TODO 其他同步问题，待测试验证后明确。
+
+## 工程债（2026-10-03 体检发现，尚未处理）
+
+- 全仓库没有自动化测试（无任何 `*.spec.ts` / `*.test.ts`）。
+- `prisma/` 下没有 migrations，仅靠 `prisma db push`，schema 漂移无保护。
+- 没有 ESLint / Prettier / editorconfig 配置。
+- Redis 已配置（`REDIS_URL`）但代码中零引用，依赖里也没有 client。
+- 没有调度器：tasks 的「每日自动归档」是 `tasks.list()` 里的惰性副作用，不打开页面就不会执行。
+- 前端 `App.tsx` 单文件 4556 行、152 个 useState、无路由库；8 个页面组件与 `PlaceholderPage` 混在一起。
+- `PlaceholderPage` 占位页仍有 4 个：日历、提醒、每日评分、AI 助手。
+- 后端 `scores/`、`suggestions/`、`reminders/` 三个模块只有空的 `@Module({})`，无 controller/service。
 
 ## 想法池
 

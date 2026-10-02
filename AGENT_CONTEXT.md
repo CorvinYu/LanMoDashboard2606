@@ -65,7 +65,8 @@
 
 - `MICROSOFT_TODO_TIME_ZONE`：默认 `Asia/Shanghai`，Microsoft To Do 时间转换用。
 - 电价：`0.63` 元/度（写在电费服务里，用于充值金额 → 电量换算）。
-- Swagger：生产环境默认关闭，`ENABLE_SWAGGER=true` 可临时开启。
+- Swagger：**默认关闭**（2026-10-03 起改为必须显式 `ENABLE_SWAGGER=true`，因为本机 dev 实例公网可达）。
+- `/api/ai/chat`：需要 JWT（2026-10-03 起），与其它业务接口一致。
 - 前端代理目标：`VITE_API_PROXY_TARGET`（默认 `http://localhost:4000`；本机用 `apps/frontend/.env.local` 指到 4100）。
 
 ## 当前已知问题（真正未解决的）

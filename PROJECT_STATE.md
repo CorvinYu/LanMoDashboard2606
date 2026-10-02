@@ -84,7 +84,18 @@ keep business code focused, and avoid vendor lock-in. 目标与工程方针的�
   habits advance by their own interval algorithm, pending reminders follow their host
 - Responsive layout: desktop three-column task panel, mobile-first ordering, sidebar drawer
 - Production baseline: `docker-compose.prod.yml`, `deploy/Caddyfile`,
-  `.env.production.example`, Swagger off by default in production
+  `.env.production.example`
+- Security hardening (2026-10-03): `JwtAuthGuard` on `/api/ai/chat` (previously unguarded);
+  Swagger now opt-in via `ENABLE_SWAGGER=true` (previously served on the public dev instance)
+
+## Ops Note: Swagger
+
+`/api/docs` 自 2026-10-03 起**默认关闭**，只有显式设置 `ENABLE_SWAGGER=true` 才开启。
+原因：本机主力形态是 `NODE_ENV` 非 production 的 dev 常驻实例，却通过 Cloudflare Tunnel 暴露在公网，
+旧逻辑（`NODE_ENV !== 'production'` 即开启）导致 45 个端点的完整 schema 对公网可见。
+临时开启方式：在 `apps/backend/.env` 加 `ENABLE_SWAGGER=true`，重启后端即可。
+
+`/api/ai/chat` 自 2026-10-03 起需要 JWT，与其它业务接口一致。
 
 ## Important AI Rule
 
@@ -93,7 +104,17 @@ AI 只能生成建议，不能直接修改任务、倒计时、提醒或日历�
 
 ## Current Verification
 
-最近一次（2026-09-28，本机 Mac mini dev 形态）：
+最近一次（2026-10-03，本机 Mac mini dev 形态 · 安全与运维加固）：
+
+- `npx tsc --noEmit` 后端与前端均无错误
+- 无 token 访问 `/api/ai/chat` → **401**（修复前为 500，且公网可调用）
+- 无 token 访问 `/api/tasks` → 401；`/api/health` → 200
+- `/api/docs`（Swagger）本机与公网均 → **404**（修复前 200）
+- 公网 `https://lmd.corvinyu.icu/api/health` → 200，前端根路径 → 200
+- cloudflared 隧道 `ha_connections` 恒为 2；33 MB 日志已轮转（copytruncate，进程句柄 inode 未变）
+- `com.corvinyu.logrotate` 每 3600 秒执行，首次 `last exit code = 0`
+
+前次（2026-09-28，本机 Mac mini dev 形态）：
 
 - `npx tsc --noEmit` 后端与前端均无错误
 - 未携带 token 访问受保护接口返回 `401`

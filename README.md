@@ -191,7 +191,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 
 - 生产编排不再对公网暴露 PostgreSQL、Redis、NestJS 和 Adminer。
 - PostgreSQL 和 Redis 都使用持久化 volume。
-- 后端默认在 `NODE_ENV=production` 下关闭 Swagger；如需临时开启，可将 `ENABLE_SWAGGER=true`。
+- Swagger 默认**关闭**（2026-10-03 起，不再依赖 `NODE_ENV`）；如需临时开启，设 `ENABLE_SWAGGER=true` 并重启后端。
 - `MICROSOFT_REDIRECT_URI` 必须和线上域名一致，例如：
 
 ```text

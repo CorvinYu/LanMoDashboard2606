@@ -233,3 +233,9 @@
     已验证：dry-run 预览、执行、逾期归零、撤销还原全链路实测通过
     待做：支持自定义平移策略（按优先级分散到未来 N 天）
     待做：多用户场景下快照按用户隔离展示（当前按登录用户校验归属）
+
+  安全与运维加固
+    已完成：AI 接口 /api/ai/chat 补上 JWT 鉴权（此前无守卫，公网可直接调用）
+    已完成：Swagger /api/docs 改为仅在 ENABLE_SWAGGER=true 时开启（此前 dev 常驻实例在公网可见）
+    已完成：cloudflared 日志轮转（用户级 LaunchAgent，copytruncate 策略，单份超 10MB 触发、保留 3 份）
+    已验证：前后端 tsc --noEmit 通过；无 token 访问 AI 接口与其它受保护接口均返回 401；公网 Swagger 返回 404；健康检查与前端返回 200

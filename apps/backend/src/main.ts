@@ -6,9 +6,9 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const frontendUrl = process.env.FRONTEND_URL;
-  const enableSwagger =
-    process.env.ENABLE_SWAGGER?.toLowerCase() === 'true' ||
-    process.env.NODE_ENV !== 'production';
+  // Swagger 默认关闭：仅当显式设置 ENABLE_SWAGGER=true 时开启。
+  // 该实例以 dev 常驻形式暴露在公网（Cloudflare Tunnel），不能再依赖 NODE_ENV。
+  const enableSwagger = process.env.ENABLE_SWAGGER?.toLowerCase() === 'true';
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
