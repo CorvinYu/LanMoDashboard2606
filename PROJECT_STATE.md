@@ -111,6 +111,7 @@ AI 只能生成建议，不能直接修改任务、倒计时、提醒或日历�
 - 无 token 访问 `/api/tasks` → 401；`/api/health` → 200
 - `/api/docs`（Swagger）本机与公网均 → **404**（修复前 200）
 - 公网 `https://lmd.corvinyu.icu/api/health` → 200，前端根路径 → 200
+  （⚠️ 公网侧**间歇返回连接中断**，与本轮改动无关，根因见 `TODO_AND_BUGS.md` 的 Bug 条目）
 - cloudflared 隧道 `ha_connections` 恒为 2；33 MB 日志已轮转（copytruncate，进程句柄 inode 未变）
 - `com.corvinyu.logrotate` 每 3600 秒执行，首次 `last exit code = 0`
 

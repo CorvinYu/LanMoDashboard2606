@@ -113,6 +113,11 @@
 
 - 外部面板：选取虚线框不实时显示、裁剪偏移、取消按钮偶发点不动。
 - MS TODO 其他同步问题，待测试验证后明确。
+- **公网入口间歇性失败**（2026-10-03 发现，未修）：`https://lmd.corvinyu.icu` 偶发返回连接中断
+  （本机 3000/4100 完全正常）。根因在 Mac 的 Clash 配置：`fake-ip-filter` 缺少
+  `+.argotunnel.com` 白名单，导致 cloudflared 的边缘连接被解析成 fake-IP（198.18.x）后
+  TLS 握手失败，隧道健康连接数从 2 掉到 1。
+  完整诊断与修法见 hub 运维文档 `E:\claude\lanmo-dashboard\NOTES.md` §7.5。
 
 ## 工程债（2026-10-03 体检发现，尚未处理）
 
