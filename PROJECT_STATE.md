@@ -87,6 +87,10 @@ keep business code focused, and avoid vendor lock-in. 目标与工程方针的�
   `.env.production.example`
 - Security hardening (2026-10-03): `JwtAuthGuard` on `/api/ai/chat` (previously unguarded);
   Swagger now opt-in via `ENABLE_SWAGGER=true` (previously served on the public dev instance)
+- Engineering baseline (2026-10-06): Prisma migration baseline (`0_init`), ESLint 9 + Prettier +
+  editorconfig with `lint`/`format` npm scripts, real cron-based daily task archiving
+  (`TasksArchiveScheduler`, 00:05 daily, all users), and pure-helper extraction into
+  `apps/frontend/src/lib/format.ts` (`App.tsx` 4556 → 4048 lines)
 
 ## Ops Note: Swagger
 
@@ -104,7 +108,18 @@ AI 只能生成建议，不能直接修改任务、倒计时、提醒或日历�
 
 ## Current Verification
 
-最近一次（2026-10-03，本机 Mac mini dev 形态 · 安全与运维加固）：
+最近一次（2026-10-06，本机 Mac mini dev 形态 · 工程债清理）：
+
+- 前后端 `npx tsc --noEmit` 均无错误；`eslint src` 零错误零警告
+- 前端 `npx vite build` 成功（1579 modules，624ms）
+- Prisma 迁移基线：`prisma migrate status` → "Database schema is up to date!"；
+  用 shadow 库跑 `migrate diff --from-migrations` → "No difference detected"（基线可精确重建 schema）
+- 定时归档：`ScheduleModule dependencies initialized` 出现在启动日志；
+  功能验证 —— 造一条 3 天前完成的 DONE 任务 → 归档谓词命中（UPDATE 1）→ 变 ARCHIVED → 清理后总数回到 256
+- 数据完好：tasks=256、users=4、`_prisma_migrations`=1
+- 运行时：health=200、frontend=200、ai 无 token=401、docs=404
+
+前次（2026-10-03，本机 Mac mini dev 形态 · 安全与运维加固）：
 
 - `npx tsc --noEmit` 后端与前端均无错误
 - 无 token 访问 `/api/ai/chat` → **401**（修复前为 500，且公网可调用）

@@ -119,16 +119,21 @@
   TLS 握手失败，隧道健康连接数从 2 掉到 1。
   完整诊断与修法见 hub 运维文档 `E:\claude\lanmo-dashboard\NOTES.md` §7.5。
 
-## 工程债（2026-10-03 体检发现，尚未处理）
+## 工程债（2026-10-06 更新）
 
+已处理：
+- ✅ Prisma 迁移基线已建立（`prisma/migrations/0_init`），不再裸用 `db push`。
+- ✅ ESLint 9 + Prettier + editorconfig 已就位，前后端 lint 零告警。
+- ✅ 「每日自动归档」已改为真正的定时任务（`TasksArchiveScheduler`，每天 00:05）。
+- ✅ 前端 `App.tsx` 已抽出纯函数层（4556 → 4048 行），新增 `src/lib/format.ts`。
+
+仍未处理：
 - 全仓库没有自动化测试（无任何 `*.spec.ts` / `*.test.ts`）。
-- `prisma/` 下没有 migrations，仅靠 `prisma db push`，schema 漂移无保护。
-- 没有 ESLint / Prettier / editorconfig 配置。
 - Redis 已配置（`REDIS_URL`）但代码中零引用，依赖里也没有 client。
-- 没有调度器：tasks 的「每日自动归档」是 `tasks.list()` 里的惰性副作用，不打开页面就不会执行。
-- 前端 `App.tsx` 单文件 4556 行、152 个 useState、无路由库；8 个页面组件与 `PlaceholderPage` 混在一起。
+- 前端 `App.tsx` 仍有 4048 行、无路由库；页面组件与 `PlaceholderPage` 仍混在一个文件里（下一步拆分）。
 - `PlaceholderPage` 占位页仍有 4 个：日历、提醒、每日评分、AI 助手。
 - 后端 `scores/`、`suggestions/`、`reminders/` 三个模块只有空的 `@Module({})`，无 controller/service。
+- `globals.css` 第 1490 行附近有一个 CSS 语法告警（`Unexpected "}"`），`vite build` 会提示，尚未定位修复。
 
 ## 想法池
 

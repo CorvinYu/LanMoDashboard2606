@@ -239,3 +239,11 @@
     已完成：Swagger /api/docs 改为仅在 ENABLE_SWAGGER=true 时开启（此前 dev 常驻实例在公网可见）
     已完成：cloudflared 日志轮转（用户级 LaunchAgent，copytruncate 策略，单份超 10MB 触发、保留 3 份）
     已验证：前后端 tsc --noEmit 通过；无 token 访问 AI 接口与其它受保护接口均返回 401；公网 Swagger 返回 404；健康检查与前端返回 200
+
+  工程债清理（2026-10-06）
+    已完成：Prisma 迁移基线（0_init）建立，用 shadow 库验证「迁移历史可精确重建当前 schema」
+    已完成：新增 ESLint 9 flat config（前后端各一份）+ Prettier + editorconfig，前后端 lint 零错误零警告
+    已完成：新增 npm scripts：lint / lint:fix / format / format:check
+    已完成：「每日自动归档」由 tasks.list() 的惰性副作用改为真正的定时任务（@nestjs/schedule，每天 00:05，覆盖全部用户）
+    已完成：前端 App.tsx 抽出 42 个纯工具函数到 src/lib/format.ts（4556 行 → 4048 行）
+    已验证：前后端 tsc --noEmit 通过、eslint 零告警、前端 vite build 成功、数据库 256 任务/4 用户完好

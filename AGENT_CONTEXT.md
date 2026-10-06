@@ -61,6 +61,16 @@
 - **外部面板** — iframe 胶囊嵌入，可视化裁剪
 - **兴趣记录** — 已设计待实现
 
+## 工程约定（2026-10-06 起）
+
+- **数据库改动必须走迁移**：`prisma migrate dev --name <描述>`，不要再直接用 `prisma db push`。
+  基线是 `prisma/migrations/0_init`（已用 shadow 库验证可精确重建 schema）。
+- **提交前跑**：`cd apps/backend && npm run lint && npx tsc --noEmit`，前端同理（`npm run lint && npx tsc --noEmit`）。
+- **格式**：Prettier 配置在根 `.prettierrc.json`；`npm run format` 只作用于 `src/**`。
+- **定时任务**：用 `@nestjs/schedule` 的 `@Cron`（已全局启用 `ScheduleModule.forRoot()`），
+  不要再把「按时间该做的事」塞进请求路径里当惰性副作用。
+- **前端工具函数**：纯函数放 `apps/frontend/src/lib/`，不要继续堆进 `App.tsx`。
+
 ## 重要配置与开关
 
 - `MICROSOFT_TODO_TIME_ZONE`：默认 `Asia/Shanghai`，Microsoft To Do 时间转换用。

@@ -26,8 +26,6 @@ export class TasksService {
   async list(userId: string) {
     const { todayStart, tomorrowStart } = this.getTodayRange();
 
-    await this.archiveOldDoneTasks(userId, todayStart);
-
     const tasks = await this.prisma.task.findMany({
       where: {
         userId,
@@ -124,19 +122,25 @@ export class TasksService {
     });
   }
 
-  private async archiveOldDoneTasks(userId: string, todayStart: Date) {
-    await this.prisma.task.updateMany({
+  /**
+   * 把指定用户「在某时刻之前完成」的任务归档，返回受影响条数。
+   * 由 TasksArchiveScheduler 每日调用；语义与原先 list() 内的惰性归档完全一致。
+   */
+  async archiveCompletedBefore(userId: string, before: Date): Promise<number> {
+    const result = await this.prisma.task.updateMany({
       where: {
         userId,
         status: 'DONE',
         completedAt: {
-          lt: todayStart,
+          lt: before,
         },
       },
       data: {
         status: 'ARCHIVED',
       },
     });
+
+    return result.count;
   }
 
   private getTodayRange() {
